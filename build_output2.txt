@@ -1,0 +1,22 @@
+
+> reward-bridge-frontend@0.1.0 build
+> next build
+
+▲ Next.js 16.1.6 (Turbopack)
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.2s
+  Running TypeScript ...
+Failed to compile.
+
+./src/app/[builderId]/page.tsx:122:30
+Type error: 'response' is possibly 'undefined'.
+
+  120 |                 {
+  121 |                     role: 'assistant',
+> 122 |                     content: response.response,
+      |                              ^
+  123 |                     file: response.base64 ? {
+  124 |                         base64: response.base64,
+  125 |                         fileName: response.fileName,
+Next.js build worker exited with code: 1 and signal: null

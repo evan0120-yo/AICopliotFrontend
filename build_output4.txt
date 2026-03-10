@@ -1,0 +1,22 @@
+
+> reward-bridge-frontend@0.1.0 build
+> next build
+
+▲ Next.js 16.1.6 (Turbopack)
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 3.1s
+  Running TypeScript ...
+Failed to compile.
+
+./src/app/page.tsx:4:25
+Type error: Cannot find module 'react-query' or its corresponding type declarations.
+
+  2 |
+  3 | import { useState } from 'react';
+> 4 | import { useForm } from 'react-query';
+    |                         ^
+  5 | import { Button } from '@/components/ui/button';
+  6 | import { Sidebar } from '@/components/layout/sidebar';
+  7 | import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+Next.js build worker exited with code: 1 and signal: null

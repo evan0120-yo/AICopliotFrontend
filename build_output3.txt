@@ -1,0 +1,22 @@
+
+> reward-bridge-frontend@0.1.0 build
+> next build
+
+▲ Next.js 16.1.6 (Turbopack)
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 5.3s
+  Running TypeScript ...
+Failed to compile.
+
+./src/app/[builderId]/page.tsx:159:78
+Type error: Argument of type 'unknown' is not assignable to parameter of type 'string | undefined'.
+
+  157 |
+  158 |                 <div className="flex items-center gap-2">
+> 159 |                     <Select onValueChange={(val) => setValue('outputFormat', val)}>
+      |                                                                              ^
+  160 |                         <SelectTrigger className="w-[140px] h-8 text-xs">
+  161 |                             <SelectValue placeholder="Output Format" />
+  162 |                         </SelectTrigger>
+Next.js build worker exited with code: 1 and signal: null
