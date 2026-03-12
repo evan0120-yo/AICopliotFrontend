@@ -15,7 +15,6 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { RagFormValues, TemplateFormValues } from '@/types/admin';
 
 const EMPTY_RAG: RagFormValues = {
@@ -51,7 +50,6 @@ export function TemplateFormDialog({
         control,
         handleSubmit,
         reset,
-        setValue,
     } = useForm<TemplateFormValues>({
         defaultValues: initialValues,
     });
@@ -67,9 +65,9 @@ export function TemplateFormDialog({
         }
     }, [initialValues, open, reset]);
 
-    const typeCode = useWatch({ control, name: 'typeCode' });
     const active = useWatch({ control, name: 'active' });
     const groupKey = useWatch({ control, name: 'groupKey' });
+    const orderNo = useWatch({ control, name: 'orderNo' });
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -113,20 +111,16 @@ export function TemplateFormDialog({
                                 </p>
                             </div>
                             <div className="space-y-1.5">
-                                <Label className="text-xs">用途分類</Label>
-                                <Select
-                                    value={typeCode || 'CONTENT'}
-                                    onValueChange={(value) => setValue('typeCode', value ?? 'CONTENT', { shouldDirty: true })}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="PINNED">固定規則</SelectItem>
-                                        <SelectItem value="CHECK">檢查規則</SelectItem>
-                                        <SelectItem value="CONTENT">主要內容</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <Label className="text-xs">範本排序</Label>
+                                <Input
+                                    type="number"
+                                    min="1"
+                                    placeholder="留空代表排到最後"
+                                    {...register('orderNo')}
+                                />
+                                <p className="text-[11px] leading-5 text-muted-foreground">
+                                    {orderNo ? `目前會嘗試排到第 ${orderNo} 位。` : '留空時後端會自動排到最後。'}
+                                </p>
                             </div>
                         </div>
 

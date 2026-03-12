@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowLeft, Hash, Loader2, Pencil, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { TemplateFormDialog } from '@/components/features/builder-graph/template-form-dialog';
@@ -14,16 +14,10 @@ const EMPTY_TEMPLATE: TemplateFormValues = {
     name: '',
     description: '',
     groupKey: '',
-    typeCode: 'CONTENT',
+    orderNo: '',
     prompts: '',
     active: true,
     rag: [],
-};
-
-const TYPE_COPY: Record<string, { label: string; tone: string }> = {
-    PINNED: { label: '固定規則', tone: 'bg-blue-100 text-blue-700' },
-    CHECK: { label: '檢查規則', tone: 'bg-amber-100 text-amber-700' },
-    CONTENT: { label: '主要內容', tone: 'bg-emerald-100 text-emerald-700' },
 };
 
 type TemplateDialogState =
@@ -50,7 +44,7 @@ function templateToFormValues(template: BuilderTemplateResponse): TemplateFormVa
         name: template.name,
         description: template.description ?? '',
         groupKey: template.groupKey ?? '',
-        typeCode: template.typeCode,
+        orderNo: String(template.orderNo),
         prompts: template.prompts ?? '',
         active: template.active,
         rag: template.rag.map((rag) => ({
@@ -63,12 +57,15 @@ function templateToFormValues(template: BuilderTemplateResponse): TemplateFormVa
 }
 
 function formValuesToRequest(values: TemplateFormValues) {
+    const parsedOrder = Number(values.orderNo);
+    const orderNo = values.orderNo && Number.isFinite(parsedOrder) && parsedOrder > 0 ? parsedOrder : undefined;
+
     return {
         templateKey: values.templateKey || undefined,
         name: values.name,
         description: values.description || undefined,
         groupKey: values.groupKey || undefined,
-        typeCode: values.typeCode || undefined,
+        orderNo,
         prompts: values.prompts || undefined,
         active: values.active,
         rag: values.rag.map((rag, index) => ({
@@ -90,7 +87,7 @@ export default function TemplateLibraryPage() {
     const [dialogState, setDialogState] = useState<TemplateDialogState | null>(null);
 
     const sortedTemplates = useMemo(
-        () => templateQuery.data ?? [],
+        () => [...(templateQuery.data ?? [])].sort((a, b) => a.orderNo - b.orderNo || a.templateId - b.templateId),
         [templateQuery.data],
     );
 
@@ -109,7 +106,7 @@ export default function TemplateLibraryPage() {
             mode: 'update',
             templateId: template.templateId,
             title: '編輯 Template',
-            description: '更新範本本身的 prompts、RAG 與群組範圍。',
+            description: '更新範本本身的 prompts、RAG、排序與群組範圍。',
             submitLabel: '更新範本',
             initialValues: templateToFormValues(template),
         });
@@ -202,73 +199,67 @@ export default function TemplateLibraryPage() {
                     </div>
                 ) : (
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                        {sortedTemplates.map((template) => {
-                            const typeMeta = TYPE_COPY[template.typeCode] ?? {
-                                label: template.typeCode,
-                                tone: 'bg-slate-100 text-slate-700',
-                            };
-
-                            return (
-                                <div key={template.templateId} className="rounded-3xl border bg-card p-5 shadow-sm">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="space-y-2">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className={`rounded-full px-2 py-1 text-[11px] font-semibold ${typeMeta.tone}`}>
-                                                    {typeMeta.label}
+                        {sortedTemplates.map((template) => (
+                            <div key={template.templateId} className="rounded-3xl border bg-card p-5 shadow-sm">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="space-y-2">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-700">
+                                                <Hash className="mr-1 inline h-3 w-3" />
+                                                排序 {template.orderNo}
+                                            </span>
+                                            <span className="rounded-full bg-muted px-2 py-1 text-[11px] text-muted-foreground">
+                                                {template.groupKey ? `群組：${template.groupKey}` : '公版'}
+                                            </span>
+                                            {!template.active ? (
+                                                <span className="rounded-full bg-zinc-200 px-2 py-1 text-[11px] text-zinc-700">
+                                                    已停用
                                                 </span>
-                                                <span className="rounded-full bg-muted px-2 py-1 text-[11px] text-muted-foreground">
-                                                    {template.groupKey ? `群組：${template.groupKey}` : '公版'}
-                                                </span>
-                                                {!template.active ? (
-                                                    <span className="rounded-full bg-zinc-200 px-2 py-1 text-[11px] text-zinc-700">
-                                                        已停用
-                                                    </span>
-                                                ) : null}
-                                            </div>
-                                            <div>
-                                                <p className="text-lg font-semibold">{template.name}</p>
-                                                <p className="mt-1 text-xs text-muted-foreground">
-                                                    {template.templateKey}
-                                                </p>
-                                            </div>
+                                            ) : null}
                                         </div>
-
-                                        <div className="flex items-center gap-1">
-                                            <Button type="button" variant="ghost" size="xs" onClick={() => handleEdit(template)}>
-                                                <Pencil className="h-3 w-3" />
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant="destructive"
-                                                size="xs"
-                                                disabled={deleteMutation.isPending}
-                                                onClick={() => handleDelete(template)}
-                                            >
-                                                <Trash2 className="h-3 w-3" />
-                                            </Button>
+                                        <div>
+                                            <p className="text-lg font-semibold">{template.name}</p>
+                                            <p className="mt-1 text-xs text-muted-foreground">
+                                                {template.templateKey}
+                                            </p>
                                         </div>
                                     </div>
 
-                                    <p className="mt-4 line-clamp-3 text-sm leading-6 text-muted-foreground">
-                                        {template.description || '未提供範本說明。'}
-                                    </p>
-
-                                    <div className="mt-4 rounded-2xl bg-muted/40 p-4">
-                                        <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                                            Source Prompts
-                                        </p>
-                                        <p className="mt-2 line-clamp-5 whitespace-pre-wrap text-sm leading-6 text-foreground/85">
-                                            {template.prompts || '這個範本不會預填 Source prompts。'}
-                                        </p>
-                                    </div>
-
-                                    <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
-                                        <span>RAG: {template.rag.length} 筆</span>
-                                        <span>{template.rag.filter((rag) => rag.overridable).length} 筆可覆蓋</span>
+                                    <div className="flex items-center gap-1">
+                                        <Button type="button" variant="ghost" size="xs" onClick={() => handleEdit(template)}>
+                                            <Pencil className="h-3 w-3" />
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="xs"
+                                            disabled={deleteMutation.isPending}
+                                            onClick={() => handleDelete(template)}
+                                        >
+                                            <Trash2 className="h-3 w-3" />
+                                        </Button>
                                     </div>
                                 </div>
-                            );
-                        })}
+
+                                <p className="mt-4 line-clamp-3 text-sm leading-6 text-muted-foreground">
+                                    {template.description || '未提供範本說明。'}
+                                </p>
+
+                                <div className="mt-4 rounded-2xl bg-muted/40 p-4">
+                                    <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                                        Source Prompts
+                                    </p>
+                                    <p className="mt-2 line-clamp-5 whitespace-pre-wrap text-sm leading-6 text-foreground/85">
+                                        {template.prompts || '這個範本不會預填 Source prompts。'}
+                                    </p>
+                                </div>
+
+                                <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+                                    <span>RAG: {template.rag.length} 筆</span>
+                                    <span>{template.rag.filter((rag) => rag.overridable).length} 筆可覆蓋</span>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>

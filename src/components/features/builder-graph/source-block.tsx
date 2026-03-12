@@ -1,23 +1,14 @@
 'use client';
 
-import { UseFormRegister, UseFormSetValue, Control, useFieldArray, useFormState, useWatch } from 'react-hook-form';
+import { UseFormRegister, Control, useFieldArray, useFormState, useWatch } from 'react-hook-form';
 import { Card, CardContent, CardHeader, CardTitle, CardAction } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronUp, ChevronDown, Trash2, Plus, Copy, Save } from 'lucide-react';
+import { ChevronUp, ChevronDown, Trash2, Plus, Copy, Save, Lock, Shield } from 'lucide-react';
 import { RagItem } from './rag-item';
 import { cn } from '@/lib/utils';
 import type { GraphFormValues, RagFormValues } from '@/types/admin';
-
-const TYPE_CODE_STYLES: Record<string, { border: string; badge: string; label: string }> = {
-    PINNED: { border: 'border-l-blue-500', badge: 'bg-blue-100 text-blue-700', label: '固定規則' },
-    CHECK: { border: 'border-l-amber-500', badge: 'bg-amber-100 text-amber-700', label: '檢查規則' },
-    CONTENT: { border: 'border-l-emerald-500', badge: 'bg-emerald-100 text-emerald-700', label: '主要內容' },
-};
-
-const DEFAULT_STYLE = { border: 'border-l-gray-400', badge: 'bg-gray-100 text-gray-700', label: '尚未分類' };
 
 const NEW_RAG: RagFormValues = {
     ragType: '',
@@ -29,9 +20,12 @@ const NEW_RAG: RagFormValues = {
 interface SourceBlockProps {
     index: number;
     sourceCount: number;
+    sourceNumber: number;
+    isSystemBlock: boolean;
+    canMoveUp: boolean;
+    canMoveDown: boolean;
     register: UseFormRegister<GraphFormValues>;
     control: Control<GraphFormValues>;
-    setValue: UseFormSetValue<GraphFormValues>;
     onMoveUp: () => void;
     onMoveDown: () => void;
     onRemove: () => void;
@@ -43,9 +37,12 @@ interface SourceBlockProps {
 export function SourceBlock({
     index,
     sourceCount,
+    sourceNumber,
+    isSystemBlock,
+    canMoveUp,
+    canMoveDown,
     register,
     control,
-    setValue,
     onMoveUp,
     onMoveDown,
     onRemove,
@@ -59,26 +56,59 @@ export function SourceBlock({
     });
 
     const templateId = useWatch({ control, name: `sources.${index}.templateId` });
-    const typeCode = useWatch({ control, name: `sources.${index}.typeCode` }) ?? '';
     const templateName = useWatch({ control, name: `sources.${index}.templateName` });
     const templateDescription = useWatch({ control, name: `sources.${index}.templateDescription` });
+    const prompts = useWatch({ control, name: `sources.${index}.prompts` });
     const { errors } = useFormState({ control, name: `sources.${index}` });
-    const style = TYPE_CODE_STYLES[typeCode] || DEFAULT_STYLE;
     const sourceErrors = errors.sources?.[index];
-    const typeError = sourceErrors && 'typeCode' in sourceErrors ? sourceErrors.typeCode?.message : undefined;
     const promptsError = sourceErrors && 'prompts' in sourceErrors ? sourceErrors.prompts?.message : undefined;
 
     return (
-        <Card className={cn('border-l-4', style.border)}>
+        <Card
+            className={cn(
+                'border-l-4',
+                isSystemBlock
+                    ? 'border border-slate-200 border-dashed bg-slate-50/80 ring-slate-200'
+                    : templateId
+                        ? 'border-l-sky-500'
+                        : 'border-l-zinc-400',
+            )}
+        >
             <CardHeader>
                 <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                        <span className={cn('rounded px-2 py-0.5 text-xs font-semibold', style.badge)}>
-                            {style.label}
+                        <span
+                            className={cn(
+                                'rounded px-2 py-0.5 text-xs font-semibold',
+                                isSystemBlock
+                                    ? 'bg-slate-900 text-slate-50'
+                                    : templateId
+                                        ? 'bg-sky-100 text-sky-700'
+                                        : 'bg-zinc-100 text-zinc-700',
+                            )}
+                        >
+                            {isSystemBlock ? '系統區塊' : templateId ? '範本副本' : '自訂區塊'}
                         </span>
-                        <CardTitle className="text-sm">Source #{index + 1}</CardTitle>
+                        <CardTitle className="text-sm">
+                            {isSystemBlock ? '系統安全區塊' : `Source #${sourceNumber}`}
+                        </CardTitle>
+                        <span className="text-xs text-muted-foreground">
+                            {isSystemBlock ? '固定置頂' : `排序 #${sourceNumber}`}
+                        </span>
+                        {isSystemBlock ? <Lock className="h-3.5 w-3.5 text-slate-500" /> : null}
                     </div>
-                    {templateName ? (
+
+                    {isSystemBlock ? (
+                        <div className="rounded-xl border border-slate-200 bg-white/70 px-3 py-2 text-[11px] leading-5 text-slate-600">
+                            <div className="flex items-center gap-2 font-medium text-slate-700">
+                                <Shield className="h-3.5 w-3.5" />
+                                系統維護的安全規則區塊
+                            </div>
+                            <p className="mt-1">
+                                這段 prompt 會固定排在最前面，方便閱讀完整組裝順序；目前僅供檢視，不可編輯、刪除或調整順序。
+                            </p>
+                        </div>
+                    ) : templateName ? (
                         <div className="space-y-1">
                             <p className="text-xs font-medium text-foreground">
                                 套用範本：{templateName}
@@ -89,33 +119,40 @@ export function SourceBlock({
                                 </p>
                             ) : null}
                         </div>
+                    ) : (
+                        <p className="text-[11px] leading-5 text-muted-foreground">
+                            這是自由編排的 Source 區塊。最終組 prompt 時，系統只會依目前畫面上的上下順序處理。
+                        </p>
+                    )}
+
+                    {!isSystemBlock ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button type="button" variant="outline" size="xs" onClick={onSaveAsTemplate}>
+                                <Save className="mr-1 h-3 w-3" />
+                                另存成範本
+                            </Button>
+                            {templateId ? (
+                                <>
+                                    <Button type="button" variant="outline" size="xs" onClick={onUpdateTemplate}>
+                                        <Save className="mr-1 h-3 w-3" />
+                                        更新原範本
+                                    </Button>
+                                    <Button type="button" variant="outline" size="xs" onClick={onSaveAsNewTemplate}>
+                                        <Copy className="mr-1 h-3 w-3" />
+                                        另存新範本
+                                    </Button>
+                                </>
+                            ) : null}
+                        </div>
                     ) : null}
-                    <div className="flex flex-wrap items-center gap-2">
-                        <Button type="button" variant="outline" size="xs" onClick={onSaveAsTemplate}>
-                            <Save className="mr-1 h-3 w-3" />
-                            另存成範本
-                        </Button>
-                        {templateId ? (
-                            <>
-                                <Button type="button" variant="outline" size="xs" onClick={onUpdateTemplate}>
-                                    <Save className="mr-1 h-3 w-3" />
-                                    更新原範本
-                                </Button>
-                                <Button type="button" variant="outline" size="xs" onClick={onSaveAsNewTemplate}>
-                                    <Copy className="mr-1 h-3 w-3" />
-                                    另存新範本
-                                </Button>
-                            </>
-                        ) : null}
-                    </div>
                 </div>
-                <CardAction>
+                <CardAction className={isSystemBlock ? 'hidden' : undefined}>
                     <div className="flex items-center gap-1">
                         <Button
                             type="button"
                             variant="ghost"
                             size="xs"
-                            disabled={index === 0}
+                            disabled={!canMoveUp}
                             onClick={onMoveUp}
                         >
                             <ChevronUp className="h-3 w-3" />
@@ -124,7 +161,7 @@ export function SourceBlock({
                             type="button"
                             variant="ghost"
                             size="xs"
-                            disabled={index === sourceCount - 1}
+                            disabled={!canMoveDown || index === sourceCount - 1}
                             onClick={onMoveDown}
                         >
                             <ChevronDown className="h-3 w-3" />
@@ -143,68 +180,39 @@ export function SourceBlock({
 
             <CardContent className="space-y-4">
                 <div className="space-y-1">
-                    <Label className="text-xs">用途分類</Label>
-                    {templateId ? (
-                        <div className="space-y-2">
-                            <div className="rounded-lg border bg-muted/20 px-3 py-2 text-sm text-foreground">
-                                {style.label}
-                            </div>
-                            <p className="text-[11px] leading-5 text-muted-foreground">
-                                這段用途是跟著範本一起帶入的。若要換成其他用途，建議新增空白 Source 或重新套用其他範本。
-                            </p>
+                    <Label className="text-xs">Prompts</Label>
+                    {isSystemBlock ? (
+                        <div className="min-h-24 rounded-lg border border-slate-200 bg-white/80 px-3 py-3 text-sm leading-7 whitespace-pre-wrap break-words text-slate-900">
+                            {prompts || '尚未設定系統 prompts'}
                         </div>
                     ) : (
-                        <div className="space-y-2">
-                            <Select
-                                value={typeCode || undefined}
-                                onValueChange={(value) => setValue(`sources.${index}.typeCode`, value ?? '', { shouldDirty: true })}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="請先選這段內容的用途" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="PINNED">固定規則</SelectItem>
-                                    <SelectItem value="CHECK">檢查規則</SelectItem>
-                                    <SelectItem value="CONTENT">主要內容</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <p className="text-[11px] leading-5 text-muted-foreground">
-                                這個分類會決定這段 prompts 在 Builder 裡的角色與排序，但你不用記工程名，只要選對用途就好。
-                            </p>
-                        </div>
+                        <Textarea
+                            placeholder="輸入 source prompts..."
+                            className="min-h-24"
+                            {...register(`sources.${index}.prompts`)}
+                        />
                     )}
-                    {typeError ? (
-                        <p className="text-[11px] text-destructive">{String(typeError)}</p>
-                    ) : null}
-                </div>
-
-                <div className="space-y-1">
-                    <Label className="text-xs">Prompts</Label>
-                    <Textarea
-                        placeholder="輸入 source prompts..."
-                        className="min-h-24"
-                        {...register(`sources.${index}.prompts`)}
-                    />
                     {promptsError ? (
                         <p className="text-[11px] text-destructive">{String(promptsError)}</p>
                     ) : null}
                 </div>
 
-                {/* RAG Supplements */}
                 <div className="space-y-3">
                     <div className="flex items-center justify-between">
                         <Label className="text-xs text-muted-foreground">
                             RAG Supplements ({ragFieldArray.fields.length})
                         </Label>
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="xs"
-                            onClick={() => ragFieldArray.append(NEW_RAG)}
-                        >
-                            <Plus className="h-3 w-3 mr-1" />
-                            新增 RAG
-                        </Button>
+                        {!isSystemBlock ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="xs"
+                                onClick={() => ragFieldArray.append(NEW_RAG)}
+                            >
+                                <Plus className="mr-1 h-3 w-3" />
+                                新增 RAG
+                            </Button>
+                        ) : null}
                     </div>
 
                     {ragFieldArray.fields.length === 0 ? (
@@ -219,6 +227,7 @@ export function SourceBlock({
                                     sourceIndex={index}
                                     ragIndex={ragIndex}
                                     ragCount={ragFieldArray.fields.length}
+                                    readOnly={isSystemBlock}
                                     register={register}
                                     control={control}
                                     onMoveUp={() => ragFieldArray.move(ragIndex, ragIndex - 1)}

@@ -30,8 +30,8 @@ export interface BuilderGraphSourceResponse {
     templateName?: string | null;
     templateDescription?: string | null;
     templateGroupKey?: string | null;
-    typeCode: string;
     orderNo: number;
+    systemBlock: boolean;
     prompts: string;
     rag: BuilderGraphRagResponse[];
 }
@@ -70,8 +70,8 @@ export interface BuilderGraphSourceRequest {
     templateName?: string;
     templateDescription?: string;
     templateGroupKey?: string;
-    typeCode?: string;
     orderNo?: number;
+    systemBlock?: boolean;
     prompts: string;
     rag?: BuilderGraphRagRequest[];
 }
@@ -97,7 +97,7 @@ export interface BuilderTemplateResponse {
     name: string;
     description: string;
     groupKey?: string | null;
-    typeCode: string;
+    orderNo: number;
     prompts: string;
     active: boolean;
     rag: BuilderTemplateRagResponse[];
@@ -117,7 +117,7 @@ export interface BuilderTemplateRequest {
     name: string;
     description?: string;
     groupKey?: string;
-    typeCode?: string;
+    orderNo?: number;
     prompts?: string;
     active?: boolean;
     rag?: BuilderTemplateRagRequest[];
@@ -133,8 +133,8 @@ export interface RagFormValues {
 }
 
 export interface SourceFormValues {
+    systemBlock: boolean;
     templateId?: number;
-    typeCode: string;
     prompts: string;
     templateKey?: string;
     templateName?: string;
@@ -149,7 +149,7 @@ export interface TemplateFormValues {
     name: string;
     description: string;
     groupKey: string;
-    typeCode: string;
+    orderNo: string;
     prompts: string;
     active: boolean;
     rag: RagFormValues[];

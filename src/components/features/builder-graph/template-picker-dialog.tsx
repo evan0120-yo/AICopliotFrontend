@@ -1,6 +1,6 @@
 'use client';
 
-import { FileText, Layers3, Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import {
     Dialog,
     DialogContent,
@@ -9,26 +9,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
 import type { BuilderTemplateResponse } from '@/types/admin';
-
-const TYPE_COPY: Record<string, { label: string; tone: string; icon: typeof Sparkles }> = {
-    PINNED: {
-        label: '固定規則',
-        tone: 'bg-blue-100 text-blue-700',
-        icon: Sparkles,
-    },
-    CHECK: {
-        label: '檢查規則',
-        tone: 'bg-amber-100 text-amber-700',
-        icon: Layers3,
-    },
-    CONTENT: {
-        label: '主要內容',
-        tone: 'bg-emerald-100 text-emerald-700',
-        icon: FileText,
-    },
-};
 
 interface TemplatePickerDialogProps {
     open: boolean;
@@ -51,15 +32,18 @@ export function TemplatePickerDialog({
 }: TemplatePickerDialogProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl p-0" showCloseButton>
-                <DialogHeader className="px-6 pt-6">
-                    <DialogTitle>選擇 Source 範本</DialogTitle>
-                    <DialogDescription>
-                        先選一個預設範本，再由系統自動帶入對應的 prompts 與 RAG 補充內容。
+            <DialogContent
+                className="grid-rows-[auto,minmax(0,1fr)] overflow-hidden h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] max-w-[calc(100vw-2rem)] p-0 sm:h-[calc(100vh-5rem)] sm:w-[calc(100vw-5rem)] sm:max-w-[calc(100vw-5rem)]"
+                showCloseButton
+            >
+                <DialogHeader className="space-y-3 border-b border-border/60 px-6 pb-4 pt-6 sm:px-8">
+                    <DialogTitle className="text-lg font-semibold">選擇 Source 範本</DialogTitle>
+                    <DialogDescription className="max-w-3xl text-sm leading-7">
+                        選一個預設範本後，系統會把對應的 Source prompts 與 RAG 直接帶進目前 Builder。
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="max-h-[70vh] px-6 pb-6">
+                <ScrollArea className="min-h-0 px-6 pb-6 pt-5 sm:px-8 sm:pb-8">
                     {isLoading ? (
                         <div className="flex min-h-52 items-center justify-center text-sm text-muted-foreground">
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -74,65 +58,53 @@ export function TemplatePickerDialog({
                             目前沒有可用範本
                         </div>
                     ) : (
-                        <div className="grid gap-3 py-1 md:grid-cols-2">
-                            {templates.map((template) => {
-                                const typeMeta = TYPE_COPY[template.typeCode] ?? {
-                                    label: template.typeCode,
-                                    tone: 'bg-slate-100 text-slate-700',
-                                    icon: FileText,
-                                };
-                                const TypeIcon = typeMeta.icon;
-
-                                return (
-                                    <button
-                                        key={template.templateId}
-                                        type="button"
-                                        className="rounded-2xl border border-border bg-card p-4 text-left transition hover:border-foreground/20 hover:bg-muted/40"
-                                        onClick={() => {
-                                            onSelectTemplate(template);
-                                            onOpenChange(false);
-                                        }}
-                                    >
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="space-y-2">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <span className={cn('rounded-full px-2 py-1 text-[11px] font-semibold', typeMeta.tone)}>
-                                                        <TypeIcon className="mr-1 inline h-3 w-3" />
-                                                        {typeMeta.label}
-                                                    </span>
-                                                    <span className="rounded-full bg-muted px-2 py-1 text-[11px] text-muted-foreground">
-                                                        {template.groupKey ? `群組：${template.groupKey}` : '公版'}
-                                                    </span>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm font-semibold">{template.name}</p>
-                                                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                                                        {template.description || '未提供範本說明'}
-                                                    </p>
-                                                </div>
+                        <div className="grid gap-4 py-1 md:grid-cols-2 xl:grid-cols-3">
+                            {templates.map((template) => (
+                                <button
+                                    key={template.templateId}
+                                    type="button"
+                                    className="rounded-2xl border border-border bg-card p-5 text-left transition hover:border-foreground/20 hover:bg-muted/40"
+                                    onClick={() => {
+                                        onSelectTemplate(template);
+                                        onOpenChange(false);
+                                    }}
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0 space-y-3">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <span className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-700">
+                                                    <Sparkles className="mr-1 inline h-3 w-3" />
+                                                    排序 #{template.orderNo}
+                                                </span>
+                                                <span className="rounded-full bg-muted px-2 py-1 text-[11px] text-muted-foreground">
+                                                    {template.groupKey ? `群組：${template.groupKey}` : '公版'}
+                                                </span>
                                             </div>
-                                            <span className={cn(
-                                                'inline-flex h-6 items-center rounded-lg border border-border px-2 text-xs text-foreground',
-                                                'bg-background'
-                                            )}>
-                                                套用
-                                            </span>
+                                            <div>
+                                                <p className="text-base font-semibold leading-6">{template.name}</p>
+                                                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                                                    {template.description || '未提供範本說明'}
+                                                </p>
+                                            </div>
                                         </div>
+                                        <span className="inline-flex h-8 shrink-0 items-center rounded-lg border border-border bg-background px-3 text-xs font-medium text-foreground">
+                                            套用
+                                        </span>
+                                    </div>
 
-                                        <div className="mt-4 space-y-2 rounded-xl bg-muted/40 p-3">
-                                            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                                                Source Prompts
-                                            </p>
-                                            <p className="line-clamp-4 text-xs leading-5 text-foreground/85">
-                                                {template.prompts || '這個範本不會預填 source prompts。'}
-                                            </p>
-                                            <p className="text-[11px] text-muted-foreground">
-                                                會一起帶入 {template.rag.length} 筆 RAG
-                                            </p>
-                                        </div>
-                                    </button>
-                                );
-                            })}
+                                    <div className="mt-5 space-y-3 rounded-xl bg-muted/40 p-4">
+                                        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                                            Source Prompts
+                                        </p>
+                                        <p className="line-clamp-5 text-sm leading-7 text-foreground/85">
+                                            {template.prompts || '這個範本不會預填 source prompts。'}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            會一起帶入 {template.rag.length} 筆 RAG
+                                        </p>
+                                    </div>
+                                </button>
+                            ))}
                         </div>
                     )}
                 </ScrollArea>

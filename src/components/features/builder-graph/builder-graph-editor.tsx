@@ -32,8 +32,8 @@ const ragSchema = z.object({
 });
 
 const sourceSchema = z.object({
+    systemBlock: z.boolean(),
     templateId: z.number().optional(),
-    typeCode: z.string().min(1),
     prompts: z.string().min(1, 'Prompts 為必填'),
     templateKey: z.string().optional(),
     templateName: z.string().optional(),
@@ -60,8 +60,8 @@ const graphFormSchema = z.object({
 });
 
 const EMPTY_SOURCE: SourceFormValues = {
+    systemBlock: false,
     templateId: undefined,
-    typeCode: '',
     prompts: '',
     templateKey: undefined,
     templateName: undefined,
@@ -88,6 +88,7 @@ const DEFAULT_FORM_VALUES: GraphFormValues = {
 type TemplateDialogState =
     | {
         mode: 'create';
+        sourceIndex: number;
         title: string;
         description: string;
         submitLabel: string;
@@ -117,8 +118,8 @@ function responseToFormValues(data: BuilderGraphResponse): GraphFormValues {
             active: data.builder.active,
         },
         sources: data.sources.map((source) => ({
+            systemBlock: source.systemBlock,
             templateId: source.templateId ?? undefined,
-            typeCode: source.typeCode,
             prompts: source.prompts,
             templateKey: source.templateKey ?? undefined,
             templateName: source.templateName ?? undefined,
@@ -136,8 +137,8 @@ function responseToFormValues(data: BuilderGraphResponse): GraphFormValues {
 
 function templateToSourceFormValues(template: BuilderTemplateResponse): SourceFormValues {
     return {
+        systemBlock: false,
         templateId: template.templateId,
-        typeCode: template.typeCode,
         prompts: template.prompts ?? '',
         templateKey: template.templateKey,
         templateName: template.name,
@@ -153,8 +154,6 @@ function templateToSourceFormValues(template: BuilderTemplateResponse): SourceFo
 }
 
 function formValuesToRequest(values: GraphFormValues): BuilderGraphRequest {
-    const typeCounters = new Map<string, number>();
-
     return {
         builder: {
             builderCode: values.builder.builderCode || undefined,
@@ -169,19 +168,16 @@ function formValuesToRequest(values: GraphFormValues): BuilderGraphRequest {
             filePrefix: values.builder.filePrefix || undefined,
             active: values.builder.active,
         },
-        sources: values.sources.map((source) => {
-            const typeCode = source.typeCode;
-            const nextOrder = (typeCounters.get(typeCode) ?? 0) + 1;
-            typeCounters.set(typeCode, nextOrder);
-
-            return {
+        sources: values.sources
+            .filter((source) => !source.systemBlock)
+            .map((source, sourceIndex) => ({
                 templateId: source.templateId,
                 templateKey: source.templateKey || undefined,
                 templateName: source.templateName || undefined,
                 templateDescription: source.templateDescription || undefined,
                 templateGroupKey: source.templateGroupKey || undefined,
-                typeCode,
-                orderNo: nextOrder,
+                orderNo: sourceIndex + 1,
+                systemBlock: source.systemBlock,
                 prompts: source.prompts,
                 rag: source.rag.length > 0
                     ? source.rag.map((rag, ragIndex) => ({
@@ -193,23 +189,23 @@ function formValuesToRequest(values: GraphFormValues): BuilderGraphRequest {
                         retrievalMode: 'full_context',
                     }))
                     : undefined,
-            };
-        }),
+            })),
     };
 }
 
 function sourceToTemplateFormValues(
     source: SourceFormValues,
-    fallbackGroupKey?: string,
-    fallbackName?: string,
+    fallbackGroupKey: string | undefined,
+    fallbackName: string,
+    fallbackOrderNo?: number,
 ): TemplateFormValues {
     return {
         templateId: source.templateId,
         templateKey: source.templateKey ?? '',
-        name: source.templateName ?? fallbackName ?? '未命名範本',
+        name: source.templateName ?? fallbackName,
         description: source.templateDescription ?? '',
         groupKey: source.templateGroupKey ?? fallbackGroupKey ?? '',
-        typeCode: source.typeCode || 'CONTENT',
+        orderNo: fallbackOrderNo ? String(fallbackOrderNo) : '',
         prompts: source.prompts,
         active: true,
         rag: source.rag.map((rag) => ({
@@ -222,12 +218,15 @@ function sourceToTemplateFormValues(
 }
 
 function templateFormValuesToRequest(values: TemplateFormValues) {
+    const parsedOrder = Number(values.orderNo);
+    const orderNo = values.orderNo && Number.isFinite(parsedOrder) && parsedOrder > 0 ? parsedOrder : undefined;
+
     return {
         templateKey: values.templateKey || undefined,
         name: values.name,
         description: values.description || undefined,
         groupKey: values.groupKey || undefined,
-        typeCode: values.typeCode || undefined,
+        orderNo,
         prompts: values.prompts || undefined,
         active: values.active,
         rag: values.rag.map((rag, index) => ({
@@ -308,13 +307,24 @@ export function BuilderGraphEditor({
         sourceFieldArray.append({ ...EMPTY_SOURCE });
     };
 
-    const handleOpenTemplatePicker = () => {
-        setIsTemplateDialogOpen(true);
-    };
-
     const handleSelectTemplate = (template: BuilderTemplateResponse) => {
         sourceFieldArray.append(templateToSourceFormValues(template));
         toast.success(`已套用範本：${template.name}`);
+    };
+
+    const findTemplateOrder = (templateId?: number) => {
+        if (!templateId) {
+            return undefined;
+        }
+        return templateQuery.data?.find((template) => template.templateId === templateId)?.orderNo;
+    };
+
+    const applyTemplateMetadataToSource = (sourceIndex: number, template: BuilderTemplateResponse) => {
+        setValue(`sources.${sourceIndex}.templateId`, template.templateId, { shouldDirty: true });
+        setValue(`sources.${sourceIndex}.templateKey`, template.templateKey, { shouldDirty: true });
+        setValue(`sources.${sourceIndex}.templateName`, template.name, { shouldDirty: true });
+        setValue(`sources.${sourceIndex}.templateDescription`, template.description ?? '', { shouldDirty: true });
+        setValue(`sources.${sourceIndex}.templateGroupKey`, template.groupKey ?? '', { shouldDirty: true });
     };
 
     const openCreateTemplateDialog = (sourceIndex: number, asNewCopy = false) => {
@@ -327,9 +337,16 @@ export function BuilderGraphEditor({
             ? (asNewCopy ? `${source.templateName} 副本` : source.templateName)
             : `Source ${sourceIndex + 1} 範本`;
 
-        const initialValues = sourceToTemplateFormValues(source, builderGroupKey, defaultName);
+        const initialValues = sourceToTemplateFormValues(
+            source,
+            builderGroupKey,
+            defaultName,
+            asNewCopy ? undefined : findTemplateOrder(source.templateId),
+        );
+
         setTemplateFormState({
             mode: 'create',
+            sourceIndex,
             title: asNewCopy ? '另存為新範本' : '另存成範本',
             description: '會把目前 Source 內容複製成可重複套用的 Template，之後可從範本快速插入。',
             submitLabel: asNewCopy ? '建立新範本' : '儲存範本',
@@ -359,6 +376,7 @@ export function BuilderGraphEditor({
                 source,
                 builderGroupKey,
                 source.templateName ?? `Source ${sourceIndex + 1} 範本`,
+                findTemplateOrder(source.templateId),
             ),
         });
     };
@@ -372,15 +390,13 @@ export function BuilderGraphEditor({
                     templateId: templateFormState.templateId,
                     data: request,
                 });
-                setValue(`sources.${templateFormState.sourceIndex}.templateKey`, updatedTemplate.templateKey, { shouldDirty: true });
-                setValue(`sources.${templateFormState.sourceIndex}.templateName`, updatedTemplate.name, { shouldDirty: true });
-                setValue(`sources.${templateFormState.sourceIndex}.templateDescription`, updatedTemplate.description ?? '', { shouldDirty: true });
-                setValue(`sources.${templateFormState.sourceIndex}.templateGroupKey`, updatedTemplate.groupKey ?? '', { shouldDirty: true });
+                applyTemplateMetadataToSource(templateFormState.sourceIndex, updatedTemplate);
                 toast.success('範本更新成功');
                 return;
             }
 
-            await createTemplateMutation.mutateAsync(request);
+            const createdTemplate = await createTemplateMutation.mutateAsync(request);
+            applyTemplateMetadataToSource(templateFormState!.sourceIndex, createdTemplate);
             toast.success('範本建立成功');
         } catch (err) {
             const message = err instanceof Error ? err.message : '範本儲存失敗';
@@ -475,7 +491,7 @@ export function BuilderGraphEditor({
                                         Sources ({sourceFieldArray.fields.length})
                                     </h2>
                                     <p className="text-xs text-muted-foreground">
-                                        依區塊編排 prompts 與 RAG 補充內容
+                                        依畫面順序編排 prompts 與 RAG 補充內容
                                     </p>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2">
@@ -493,7 +509,7 @@ export function BuilderGraphEditor({
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        onClick={handleOpenTemplatePicker}
+                                        onClick={() => setIsTemplateDialogOpen(true)}
                                     >
                                         <Sparkles className="mr-1 h-4 w-4" />
                                         從範本新增 Source
@@ -510,9 +526,12 @@ export function BuilderGraphEditor({
                                     key={field.id}
                                     index={index}
                                     sourceCount={sourceFieldArray.fields.length}
+                                    sourceNumber={sources.slice(0, index + 1).filter((source) => !source?.systemBlock).length}
+                                    isSystemBlock={Boolean(sources[index]?.systemBlock)}
+                                    canMoveUp={index > 0 && !sources[index - 1]?.systemBlock}
+                                    canMoveDown={index < sourceFieldArray.fields.length - 1}
                                     register={register}
                                     control={control}
-                                    setValue={setValue}
                                     onMoveUp={() => sourceFieldArray.move(index, index - 1)}
                                     onMoveDown={() => sourceFieldArray.move(index, index + 1)}
                                     onRemove={() => sourceFieldArray.remove(index)}
