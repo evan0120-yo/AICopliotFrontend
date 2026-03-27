@@ -27,9 +27,15 @@
 
 目前的最高原則：
 
-- consult 前台先維持穩定支援 `/consult`
+- consult 前台維持 generic consult 與 profile consult 並存
 - admin graph editor 必須能穩定 round-trip backend graph metadata
-- profile-analysis 相關能力若尚未接上，必須明確標示為 gap
+- builder-driven 畫面分流要保持 request shape 與實際 screen 一致
+
+目前分流方向：
+
+- `/[builderId]` 不再假設所有 builder 都共用同一種 chat 表單
+- 前端應允許依 builder 種類切換不同 interaction mode / screen variant
+- `LinkChat` 這類 astrology profile builder 應採專用 profile form，而不是 generic text/file consult form
 
 ## Delivery Flow
 
@@ -117,6 +123,50 @@ POST /api/consult
       └── error   -> user bubble 標成 error
 ```
 
+### Scenario group: builder-driven screen variant
+
+```text
+使用者進入 /:builderId
+      │
+      ▼
+先載入 builder metadata
+      │
+      ▼
+依 builder 種類 resolve screen variant
+      │
+      ├── generic_consult
+      │      -> 現有 chat form
+      │
+      └── astrology_profile
+             -> 星座 profile form
+```
+
+### Scenario group: astrology profile form
+
+```text
+AstrologyProfileScreen
+      │
+      ├── 固定三列
+      │      sun / moon / rising
+      │
+      ├── 每列預設 single mode
+      │      ├── 一個 select
+      │      └── 可選 unknown(default)
+      │
+      ├── 點 +混合
+      │      ├── 切到 weighted mode
+      │      ├── 兩個 zodiac select
+      │      ├── 兩個百分比欄位
+      │      ├── 兩個 select 不可 unknown
+      │      └── 總和必須 100
+      │
+      ├── 點 -單一
+      │      └── 回到 single mode
+      │
+      └── submit
+             -> POST /api/profile-consult
+```
+
 ### Scenario group: builder graph
 
 ```text
@@ -157,8 +207,11 @@ GET template library
 
 - consult chat 頁
 - file upload
+- astrology profile screen
+- `/profile-consult` frontend submit
 - builder graph editor
 - template library
+- builder-driven metadata round-trip
 - metadata round-trip
   - `moduleKey`
   - `sourceType`
@@ -168,9 +221,6 @@ GET template library
 
 ### Not Current
 
-- frontend `profile-consult`
-- weighted-entry frontend payload 編輯
-- canonical key profile form
 - create builder API
 - graph metadata 完整可視化編輯器
 
@@ -188,6 +238,7 @@ src/app
 src/hooks
   useBuilders
   useConsult
+  useProfileConsult
   useBuilderGraph
   useTemplates
 
@@ -200,6 +251,96 @@ src/components
   features/markdown-block.tsx
   features/builder-graph/*
 ```
+
+## Current UI Variant Baseline
+
+### Generic consult
+
+保留目前行為：
+
+- textarea
+- optional files
+- optional output format
+- `POST /api/consult`
+
+### Astrology profile
+
+這條線目前承接 builder `LinkChat` 這種 profile-analysis use case。
+
+目前在 frontend 內部的 builder identity baseline 為：
+
+```text
+builderId = 3
+builderCode = linkchat-astrology
+```
+
+固定欄位：
+
+- 太陽
+- 月亮
+- 上升
+- 最下方自由 text
+
+輸入快捷鍵：
+
+- generic consult multiline input：`Enter` 送出，`Shift+Enter` 換行
+- astrology profile multiline input：`Ctrl+Enter` / `Cmd+Enter` 送出，單純 `Enter` 換行
+
+每個星座欄位都支援兩種模式：
+
+```text
+single mode
+  -> 一個 select
+  -> 可選 unknown(default)
+
+weighted mode
+  -> 兩個 zodiac select
+  -> 兩個 weightPercent 欄位
+  -> 兩個 select 不可 unknown
+  -> 兩個 zodiac 不可重複
+  -> 兩格總和必須 = 100
+```
+
+UX baseline：
+
+- single mode 右側顯示 `+混合`
+- weighted mode 右側顯示 `-單一`
+- weighted mode 第二格百分比可由第一格自動互補
+- 若切回 single mode，該列重設為 `unknown(default)`
+
+payload baseline：
+
+```json
+{
+  "appId": "linkchat",
+  "builderId": 3,
+  "subjectProfile": {
+    "subjectId": "test-user-001",
+    "analysisPayloads": [
+      {
+        "analysisType": "astrology",
+        "payload": {
+          "sun_sign": ["capricorn"],
+          "moon_sign": ["pisces"],
+          "rising_sign": [
+            { "key": "aquarius", "weightPercent": 50 },
+            { "key": "capricorn", "weightPercent": 50 }
+          ]
+        }
+      }
+    ]
+  },
+  "text": "..."
+}
+```
+
+規則：
+
+- `unknown(default)` 不應送到 payload 內
+- single mode 且非 unknown：送 `["canonical_key"]`
+- weighted mode：送 `[{key, weightPercent}, {key, weightPercent}]`
+- `appId / subjectId / analysisType` 在第一版固定寫死
+- `builderId` 仍使用當前 route 的 builder id
 
 ## Admin Strategy
 
@@ -226,8 +367,8 @@ template
 
 ```text
 frontend consult
-  -> only /consult
-  -> no /profile-consult
+  -> generic consult 與 astrology profile 已共存
+  -> astrology variant 仍以 builder identity 分流，尚未有 backend uiVariant 欄位
 
 frontend admin
   -> metadata preserved

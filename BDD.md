@@ -5,6 +5,8 @@
 這份文件定義 frontend module 目前應滿足的行為規格。
 內容只以現有 code 為基準；沒有被 code 支撐的設計，不應寫在這裡。
 
+尚未落地、但已先定義好的畫面規劃，應放在 `Planned Scenario Group`，不得和 current scenario 混寫。
+
 ## Actors
 
 - consult user：使用 builder chat 送出 consult
@@ -67,6 +69,11 @@ Sidebar
   And `useConsult()` 應送出 `POST /api/consult`
   And success 後應 append assistant bubble
 
+- Given 使用者位於 generic consult multiline input
+  When 按下 `Enter`
+  Then form 應直接送出
+  And `Shift+Enter` 應保留換行
+
 - Given 使用者沒有輸入 text
   When submit form
   Then user bubble 應顯示 `未提供文字，使用 builder 預設內容。`
@@ -92,6 +99,125 @@ Sidebar
 - Given 使用者選取附件
   When 檔案超過數量 / 大小 / 副檔名限制
   Then form 應直接顯示 validation error
+
+## Scenario Group: Builder-Driven Screen Variant
+
+```text
+/:builderId
+    │
+    ├─ 先載入 builder list
+    ├─ resolve current builder
+    ├─ resolve UI variant
+    ├─ generic_consult    -> GenericConsultScreen
+    └─ astrology_profile  -> AstrologyProfileScreen
+```
+
+- Given 使用者進入 `/:builderId`
+  When builder metadata 載入成功
+  Then 頁面應先 resolve 當前 builder 對應的 screen variant
+
+- Given 當前 builder identity 為 `builderId=3` 或 `builderCode=linkchat-astrology`
+  When page resolve variant
+  Then 應進入 `astrology_profile`
+
+- Given 當前 builder 被判定為 generic consult
+  When page render
+  Then 應顯示現有 chat form
+
+- Given 當前 builder 被判定為 astrology profile
+  When page render
+  Then 不應顯示 generic file upload / output format form
+  And 應顯示 astrology profile form
+
+## Scenario Group: Astrology Profile Screen
+
+```text
+AstrologyProfileScreen
+    │
+    ├─ sun
+    ├─ moon
+    ├─ rising
+    ├─ text
+    └─ POST /api/profile-consult
+```
+
+- Given astrology profile screen 已載入
+  When render
+  Then 應固定顯示三列：
+  And `sun`
+  And `moon`
+  And `rising`
+  And 最下方一個 multiline text input
+
+- Given 某一列為 single mode
+  When render
+  Then 應只顯示一個 select
+  And 該 select 應允許 `unknown(default)`
+  And 右側應顯示 `+混合`
+
+- Given 某一列點擊 `+混合`
+  When 切到 weighted mode
+  Then 應顯示兩個 zodiac select
+  And 應顯示兩個數字框
+  And 右側應顯示 `-單一`
+  And 兩個 select 都不應有 `unknown(default)`
+  And 兩個星座與百分比應先帶入可送出的預設值
+
+- Given 某一列為 weighted mode
+  When 第一個百分比輸入 `50`
+  Then 第二個百分比應可自動互補為 `50`
+
+- Given 某一列為 weighted mode
+  When 兩個數字相加不等於 `100`
+  Then 畫面應直接顯示等價錯誤提示
+  And submit 不應通過
+
+- Given 某一列為 weighted mode
+  When 兩個 zodiac 相同
+  Then 畫面應直接顯示重複錯誤
+  And submit 不應通過
+
+- Given 某一列點擊 `-單一`
+  When 回到 single mode
+  Then 該列應重設為 `unknown(default)`
+  And 不應保留 weighted mode 的百分比欄位
+
+- Given `sun=魔羯` single、`moon=雙魚` single、`rising=unknown`
+  When submit
+  Then frontend 應送出：
+  ```json
+  {
+    "payload": {
+      "sun_sign": ["capricorn"],
+      "moon_sign": ["pisces"]
+    }
+  }
+  ```
+  And 不應送出 `rising_sign`
+
+- Given `sun=魔羯50 / 水瓶50`
+  When submit
+  Then frontend 應送出：
+  ```json
+  {
+    "payload": {
+      "sun_sign": [
+        { "key": "capricorn", "weightPercent": 50 },
+        { "key": "aquarius", "weightPercent": 50 }
+      ]
+    }
+  }
+  ```
+
+- Given astrology profile screen submit 成功
+  When backend 回傳 `ConsultBusinessResponse`
+  Then assistant 區塊應顯示 response 內容
+  And 失敗時應顯示對應 toast / inline error
+
+- Given 使用者位於 astrology profile 的 multiline text input
+  When 按下 `Ctrl+Enter` 或 `Cmd+Enter`
+  Then astrology profile form 應直接送出
+  And 單純 `Enter` 應保留換行
 
 ## Scenario Group: Builder Graph Editor
 

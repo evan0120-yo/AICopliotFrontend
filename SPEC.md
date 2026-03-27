@@ -14,16 +14,16 @@
 
 ## Scope
 
-frontend 目前只正式支援兩條線：
+frontend 目前只正式支援三條線：
 
 - 一般 consult chat
+- astrology profile consult
 - admin graph / template 管理
 
 frontend 目前**不在 scope** 內的能力：
 
-- `profile-consult` UI
-- weighted-entry profile payload editor
 - create builder API
+- backend 驅動的 `interactionMode / uiVariant` metadata
 
 ## Routing Topology
 
@@ -147,6 +147,8 @@ FormData
 - submit 後先 append pending user bubble
 - success 後 append assistant bubble
 - failure 時只把原 user bubble 標成 error
+- multiline text input 以 `Enter` 送出
+- `Shift+Enter` 保留換行
 
 ### Builder-Driven Rules
 
@@ -171,11 +173,181 @@ builder.includeFile = false
 
 目前 chat 頁還沒有：
 
-- `useProfileConsult()`
-- `subjectProfile`
-- `analysisPayloads`
-- canonical key / weighted-entry profile submit
 - 對 `responseDetail` 的消費
+
+## Current Extension: Builder-Driven Screen Variant
+
+### Responsibility
+
+- 同一路由 `/:builderId` 先讀 builder metadata
+- 再決定要 render generic consult screen 或 profile screen
+- screen variant 不只影響畫面，也會影響 submit hook 與 request shape
+
+### Baseline Structure
+
+```text
+BuilderEntryPage
+  -> resolve current builder variant
+  -> GenericConsultScreen
+  -> AstrologyProfileScreen
+```
+
+### Variant Rules
+
+```text
+generic_consult
+  -> useConsult()
+  -> POST /api/consult
+
+astrology_profile
+  -> useProfileConsult()
+  -> POST /api/profile-consult
+```
+
+目前使用 builder identity 做 variant resolve；
+current baseline 為：
+
+```text
+builderId = 3
+  -> astrology_profile
+
+builderCode = linkchat-astrology
+  -> astrology_profile
+```
+
+若 backend 日後補 `interactionMode` / `uiVariant`，frontend 應改由該欄位驅動。
+
+## Current Extension: Astrology Profile Screen
+
+### Responsibility
+
+- 承接 astrology 專用 structured profile submit
+- 將畫面欄位轉成 backend 已支援的 canonical key + weighted entry payload
+- 不暴露 generic file upload / output format 行為
+
+### Fixed Fields
+
+```text
+sun_sign
+moon_sign
+rising_sign
+text
+```
+
+### Slot Modes
+
+每個 slot 都支援兩種模式：
+
+#### Single mode
+
+- 一個 select
+- 允許 `unknown(default)`
+- 若為 `unknown`，submit 時不應送出該 slot
+
+#### Weighted mode
+
+- 兩個 zodiac select
+- 兩個 weightPercent number input
+- 兩個 select 都不允許 `unknown`
+- 兩個 zodiac 不可重複
+- `weightPercent` 必須是 `0~100`
+- 總和必須 `=== 100`
+- 第二格 weight 可由第一格自動互補
+
+### Mode Toggle Rules
+
+```text
+single mode
+  -> 顯示 +混合
+
+weighted mode
+  -> 顯示 -單一
+```
+
+- 由 single 切 weighted 時，應建立兩個預設不同 zodiac entries，百分比預設為 `50 / 50`
+- 由 weighted 切 single 時，應重設該 slot 為 `unknown(default)`
+- weighted mode 不應保留 unknown 值
+
+### UI Contract
+
+每列最小畫面語意：
+
+```text
+標籤
+  + single select / weighted dual select
+  + weight inputs (weighted only)
+  + toggle action
+```
+
+最下方保留 multiline text input，承接使用者自由補充說明。
+
+### Submit Shortcut Rules
+
+- multiline text input 以 `Ctrl+Enter` / `Cmd+Enter` 送出
+- 單純 `Enter` 保留換行
+
+### Payload Contract
+
+固定 envelope：
+
+```json
+{
+  "appId": "linkchat",
+  "builderId": 3,
+  "subjectProfile": {
+    "subjectId": "test-user-001",
+    "analysisPayloads": [
+      {
+        "analysisType": "astrology",
+        "payload": {}
+      }
+    ]
+  },
+  "text": "..."
+}
+```
+
+各 slot payload 規則：
+
+- single + 非 unknown
+
+```json
+"sun_sign": ["capricorn"]
+```
+
+- weighted
+
+```json
+"sun_sign": [
+  { "key": "capricorn", "weightPercent": 50 },
+  { "key": "aquarius", "weightPercent": 50 }
+]
+```
+
+- unknown(default)
+
+```text
+不送該 slot
+```
+
+### Select Option Rules
+
+UI 可顯示中文名稱，但 submit 時必須轉成 canonical key：
+
+```text
+牡羊 -> aries
+金牛 -> taurus
+雙子 -> gemini
+巨蟹 -> cancer
+獅子 -> leo
+處女 -> virgo
+天秤 -> libra
+天蠍 -> scorpio
+射手 -> sagittarius
+魔羯 -> capricorn
+水瓶 -> aquarius
+雙魚 -> pisces
+```
 
 ## Scenario Group: Builder Graph Editor
 
@@ -371,6 +543,23 @@ template 套入 source
 - payload: `FormData`
 - return: `ConsultBusinessResponse`
 
+### `useProfileConsult`
+
+- mutation only
+- endpoint: `POST /api/profile-consult`
+- payload: JSON
+- fixed envelope:
+  - `appId=linkchat`
+  - `subjectProfile.subjectId=test-user-001`
+  - `analysisType=astrology`
+- dynamic fields:
+  - `builderId`
+  - `sun_sign`
+  - `moon_sign`
+  - `rising_sign`
+  - `text`
+- return: `ConsultBusinessResponse`
+
 ### `useBuilderGraph`
 
 - query key: `['builderGraph', builderId]`
@@ -419,8 +608,8 @@ template 套入 source
 
 ```text
 frontend consult
-  -> only /consult
-  -> no /profile-consult UI
+  -> generic chat 與 astrology profile 已共存
+  -> variant resolve 仍依 builder identity，不是 backend metadata
 
 frontend admin
   -> metadata preserved

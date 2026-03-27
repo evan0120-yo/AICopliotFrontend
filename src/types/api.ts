@@ -38,3 +38,28 @@ export interface ConsultRequestData {
     outputFormat?: string;
     files?: File[];
 }
+
+export type ZodiacKey =
+    | 'aries'
+    | 'taurus'
+    | 'gemini'
+    | 'cancer'
+    | 'leo'
+    | 'virgo'
+    | 'libra'
+    | 'scorpio'
+    | 'sagittarius'
+    | 'capricorn'
+    | 'aquarius'
+    | 'pisces';
+
+export interface WeightedZodiacEntry {
+    key: ZodiacKey;
+    weightPercent: number;
+}
+
+export interface ProfileConsultRequestData {
+    builderId: number;
+    text?: string;
+    payload: Record<string, string[] | WeightedZodiacEntry[]>;
+}
