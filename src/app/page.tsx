@@ -22,7 +22,7 @@ export default function Home() {
       <div className="flex-1 flex flex-col min-w-0 bg-background">
         {/* Mobile Header with Hamburger */}
         <div className="md:hidden flex items-center justify-between p-4 border-b bg-background">
-          <h1 className="font-semibold">RewardBridge Copilot</h1>
+          <h1 className="font-semibold">Internal AI Copilot</h1>
           <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
             <SheetTrigger
               render={<Button variant="ghost" size="icon" />}
@@ -37,7 +37,7 @@ export default function Home() {
 
         <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-background h-full">
           <div className="max-w-md space-y-4">
-            <h2 className="text-2xl font-bold tracking-tight">Welcome to RewardBridge AI Copilot</h2>
+            <h2 className="text-2xl font-bold tracking-tight">Welcome to Internal AI Copilot</h2>
             <p className="text-muted-foreground">
               Select an AI Builder from the sidebar to start a new consultation.
               Automate PM estimates, QA smoke tests, and more with company-specific guidelines.

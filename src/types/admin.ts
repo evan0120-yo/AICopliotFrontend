@@ -30,6 +30,11 @@ export interface BuilderGraphSourceResponse {
     templateName?: string | null;
     templateDescription?: string | null;
     templateGroupKey?: string | null;
+    moduleKey?: string | null;
+    sourceType?: string | null;
+    matchKey?: string | null;
+    tags?: string[];
+    sourceIds?: number[];
     orderNo: number;
     systemBlock: boolean;
     prompts: string;
@@ -65,11 +70,17 @@ export interface BuilderGraphRagRequest {
 }
 
 export interface BuilderGraphSourceRequest {
+    sourceId?: number;
     templateId?: number;
     templateKey?: string;
     templateName?: string;
     templateDescription?: string;
     templateGroupKey?: string;
+    moduleKey?: string;
+    sourceType?: string;
+    matchKey?: string;
+    tags?: string[];
+    sourceIds?: number[];
     orderNo?: number;
     systemBlock?: boolean;
     prompts: string;
@@ -133,8 +144,14 @@ export interface RagFormValues {
 }
 
 export interface SourceFormValues {
+    sourceId?: number;
     systemBlock: boolean;
     templateId?: number;
+    moduleKey?: string;
+    sourceType?: string;
+    matchKey?: string;
+    tags?: string[];
+    sourceIds?: number[];
     prompts: string;
     templateKey?: string;
     templateName?: string;

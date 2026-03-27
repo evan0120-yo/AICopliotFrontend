@@ -32,14 +32,31 @@ const ragSchema = z.object({
 });
 
 const sourceSchema = z.object({
+    sourceId: z.number().optional(),
     systemBlock: z.boolean(),
     templateId: z.number().optional(),
-    prompts: z.string().min(1, 'Prompts 為必填'),
+    moduleKey: z.string().optional(),
+    sourceType: z.string().optional(),
+    matchKey: z.string().optional(),
+    tags: z.array(z.string()).optional(),
+    sourceIds: z.array(z.number()).optional(),
+    prompts: z.string(),
     templateKey: z.string().optional(),
     templateName: z.string().optional(),
     templateDescription: z.string().optional(),
     templateGroupKey: z.string().optional(),
     rag: z.array(ragSchema),
+}).superRefine((source, ctx) => {
+    const sourceType = source.sourceType?.trim().toLowerCase();
+    if (source.systemBlock || sourceType !== 'fragment') {
+        if (!source.prompts.trim()) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: 'Prompts 為必填',
+                path: ['prompts'],
+            });
+        }
+    }
 });
 
 const builderSchema = z.object({
@@ -60,8 +77,14 @@ const graphFormSchema = z.object({
 });
 
 const EMPTY_SOURCE: SourceFormValues = {
+    sourceId: undefined,
     systemBlock: false,
     templateId: undefined,
+    moduleKey: undefined,
+    sourceType: undefined,
+    matchKey: undefined,
+    tags: [],
+    sourceIds: [],
     prompts: '',
     templateKey: undefined,
     templateName: undefined,
@@ -118,8 +141,14 @@ function responseToFormValues(data: BuilderGraphResponse): GraphFormValues {
             active: data.builder.active,
         },
         sources: data.sources.map((source) => ({
+            sourceId: source.sourceId,
             systemBlock: source.systemBlock,
             templateId: source.templateId ?? undefined,
+            moduleKey: source.moduleKey ?? undefined,
+            sourceType: source.sourceType ?? undefined,
+            matchKey: source.matchKey ?? undefined,
+            tags: source.tags ?? [],
+            sourceIds: source.sourceIds ?? [],
             prompts: source.prompts,
             templateKey: source.templateKey ?? undefined,
             templateName: source.templateName ?? undefined,
@@ -140,6 +169,11 @@ function templateToSourceFormValues(template: BuilderTemplateResponse): SourceFo
         systemBlock: false,
         templateId: template.templateId,
         prompts: template.prompts ?? '',
+        moduleKey: undefined,
+        sourceType: undefined,
+        matchKey: undefined,
+        tags: [],
+        sourceIds: [],
         templateKey: template.templateKey,
         templateName: template.name,
         templateDescription: template.description ?? '',
@@ -171,11 +205,17 @@ function formValuesToRequest(values: GraphFormValues): BuilderGraphRequest {
         sources: values.sources
             .filter((source) => !source.systemBlock)
             .map((source, sourceIndex) => ({
+                sourceId: source.sourceId,
                 templateId: source.templateId,
                 templateKey: source.templateKey || undefined,
                 templateName: source.templateName || undefined,
                 templateDescription: source.templateDescription || undefined,
                 templateGroupKey: source.templateGroupKey || undefined,
+                moduleKey: source.moduleKey || undefined,
+                sourceType: source.sourceType || undefined,
+                matchKey: source.matchKey || undefined,
+                tags: source.tags && source.tags.length > 0 ? source.tags : undefined,
+                sourceIds: source.sourceIds && source.sourceIds.length > 0 ? source.sourceIds : undefined,
                 orderNo: sourceIndex + 1,
                 systemBlock: source.systemBlock,
                 prompts: source.prompts,

@@ -58,6 +58,7 @@ export function SourceBlock({
     const templateId = useWatch({ control, name: `sources.${index}.templateId` });
     const templateName = useWatch({ control, name: `sources.${index}.templateName` });
     const templateDescription = useWatch({ control, name: `sources.${index}.templateDescription` });
+    const tags = useWatch({ control, name: `sources.${index}.tags` }) ?? [];
     const prompts = useWatch({ control, name: `sources.${index}.prompts` });
     const { errors } = useFormState({ control, name: `sources.${index}` });
     const sourceErrors = errors.sources?.[index];
@@ -179,6 +180,22 @@ export function SourceBlock({
             </CardHeader>
 
             <CardContent className="space-y-4">
+                {tags.length > 0 ? (
+                    <div className="space-y-2 rounded-xl border border-dashed bg-muted/20 p-3">
+                        <Label className="text-xs">Tags</Label>
+                        <div className="flex flex-wrap gap-1.5">
+                            {tags.map((tag) => (
+                                <span
+                                    key={tag}
+                                    className="rounded-full border border-zinc-200 bg-white px-2 py-0.5 text-[11px] text-zinc-700"
+                                >
+                                    #{tag}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                ) : null}
+
                 <div className="space-y-1">
                     <Label className="text-xs">Prompts</Label>
                     {isSystemBlock ? (
