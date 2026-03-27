@@ -124,6 +124,7 @@ type ConversationLayoutProps = BuilderScreenProps & {
     emptyStateText: string;
     footer: React.ReactNode;
     headerAction?: React.ReactNode;
+    footerMode?: 'docked' | 'inline';
 };
 
 const ASTROLOGY_SLOT_LABELS: Record<AstrologySlotKey, string> = {
@@ -331,9 +332,10 @@ function ConversationLayout({
     emptyStateText,
     footer,
     headerAction,
+    footerMode = 'docked',
 }: ConversationLayoutProps) {
     return (
-        <div className="relative flex h-full flex-col bg-background">
+        <div className="relative flex h-full min-h-0 flex-col bg-background">
             <div className="z-10 flex items-center justify-between border-b bg-card p-4">
                 <div className="flex items-center gap-3">
                     <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
@@ -362,7 +364,7 @@ function ConversationLayout({
                 {headerAction ?? null}
             </div>
 
-            <div className="flex-1 space-y-6 overflow-y-auto p-4 scroll-smooth md:p-8">
+            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-4 scroll-smooth md:p-8">
                 {isInvalidBuilder ? (
                     <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
                         找不到對應的 builder，請從左側重新選擇。
@@ -417,11 +419,19 @@ function ConversationLayout({
                         </div>
                     </div>
                 ) : null}
+
+                {footerMode === 'inline' ? (
+                    <div className="pt-2">
+                        {footer}
+                    </div>
+                ) : null}
             </div>
 
-            <div className="border-t bg-card/50 p-4 pb-6 backdrop-blur">
-                {footer}
-            </div>
+            {footerMode === 'docked' ? (
+                <div className="border-t bg-card/50 p-4 pb-6 backdrop-blur">
+                    {footer}
+                </div>
+            ) : null}
         </div>
     );
 }
@@ -887,6 +897,7 @@ function AstrologyProfileScreen(props: BuilderScreenProps) {
             pendingLabel="AI 正在分析星座骨架並產生回應..."
             emptyStateText="設定太陽、月亮、上升與需求後送出，開始模擬 astrology profile consult。"
             footer={footer}
+            footerMode="inline"
         />
     );
 }
