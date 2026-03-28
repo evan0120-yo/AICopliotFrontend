@@ -279,7 +279,7 @@ builderCode = linkchat-astrology
 - 太陽
 - 月亮
 - 上升
-- 最下方自由 text
+- 底部自由 text
 
 輸入快捷鍵：
 
@@ -341,6 +341,33 @@ payload baseline：
 - weighted mode：送 `[{key, weightPercent}, {key, weightPercent}]`
 - `appId / subjectId / analysisType` 在第一版固定寫死
 - `builderId` 仍使用當前 route 的 builder id
+
+目前版型：
+
+```text
+Header
+  -> builder title / description
+
+Top Config Panel
+  -> 太陽 / 月亮 / 上升
+  -> 不再單行單行往下堆
+  -> desktop 盡量以緊湊多欄呈現
+
+Conversation Area
+  -> 單獨捲動
+  -> 只負責看 user / assistant 訊息
+
+Bottom Composer
+  -> 固定 text input
+  -> 固定 submit action
+```
+
+目前版型原則：
+
+- astrology profile 不應再讓大型設定表單直接擠壓對話區高度
+- 中間聊天區應和其他 builder 一樣維持主要閱讀區角色
+- 星座設定放在上方，desktop 優先以高密度多欄配置減少垂直浪費
+- top config panel 與 bottom composer 不承擔主要訊息捲動；右側主捲動應只作用於 conversation area
 
 ## Admin Strategy
 

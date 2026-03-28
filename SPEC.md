@@ -270,7 +270,27 @@ weighted mode
 
 ### UI Contract
 
-每列最小畫面語意：
+目前 astrology screen 採固定三段式：
+
+```text
+Header
+  -> builder title / description
+
+Top Config Panel
+  -> sun / moon / rising
+  -> desktop 優先多欄高密度排列
+  -> weighted mode 只展開當前 slot 的第二組 select + weight
+
+Conversation Area
+  -> 只顯示 chat history / pending / empty state
+  -> 為 astrology screen 唯一主要閱讀捲動區
+
+Bottom Composer
+  -> 固定 multiline text input
+  -> 固定 submit button
+```
+
+各 slot 的最小畫面語意：
 
 ```text
 標籤
@@ -279,7 +299,7 @@ weighted mode
   + toggle action
 ```
 
-最下方保留 multiline text input，承接使用者自由補充說明。
+top config panel 應維持 compact 版面，不再採整頁大型單列表單作為主要輸入區。
 
 ### Submit Shortcut Rules
 

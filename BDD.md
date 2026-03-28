@@ -143,11 +143,10 @@ AstrologyProfileScreen
 
 - Given astrology profile screen 已載入
   When render
-  Then 應固定顯示三列：
-  And `sun`
-  And `moon`
-  And `rising`
-  And 最下方一個 multiline text input
+  Then Header 下方應先顯示 top config panel
+  And config panel 內應固定包含 `sun`、`moon`、`rising`
+  And 中間 conversation area 只顯示對話內容
+  And 最下方應固定顯示 multiline text composer
 
 - Given 某一列為 single mode
   When render
@@ -218,6 +217,22 @@ AstrologyProfileScreen
   When 按下 `Ctrl+Enter` 或 `Cmd+Enter`
   Then astrology profile form 應直接送出
   And 單純 `Enter` 應保留換行
+
+- Given desktop layout
+  When astrology config panel render
+  Then 太陽 / 月亮 / 上升應優先以高密度多欄排列
+  And 不應預設以整頁大型單列表單佔用主要閱讀區高度
+
+- Given mobile layout
+  When astrology config panel render
+  Then 可退回單欄排列
+  And 仍應維持 top config panel -> conversation area -> bottom composer 的結構
+
+- Given astrology profile screen 已載入
+  When 使用者捲動右側主內容
+  Then 主要捲動應只作用於 conversation area
+  And top config panel 應維持在聊天區上方
+  And bottom composer 應固定在底部
 
 ## Scenario Group: Builder Graph Editor
 

@@ -123,8 +123,8 @@ type ConversationLayoutProps = BuilderScreenProps & {
     pendingLabel: string;
     emptyStateText: string;
     footer: React.ReactNode;
+    topPanel?: React.ReactNode;
     headerAction?: React.ReactNode;
-    footerMode?: 'docked' | 'inline';
 };
 
 const ASTROLOGY_SLOT_LABELS: Record<AstrologySlotKey, string> = {
@@ -331,8 +331,8 @@ function ConversationLayout({
     pendingLabel,
     emptyStateText,
     footer,
+    topPanel,
     headerAction,
-    footerMode = 'docked',
 }: ConversationLayoutProps) {
     return (
         <div className="relative flex h-full min-h-0 flex-col bg-background">
@@ -364,74 +364,74 @@ function ConversationLayout({
                 {headerAction ?? null}
             </div>
 
-            <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-4 scroll-smooth md:p-8">
-                {isInvalidBuilder ? (
-                    <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                        找不到對應的 builder，請從左側重新選擇。
-                    </div>
-                ) : null}
-
-                {isBuildersError ? (
-                    <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-                        Builder 清單載入失敗，目前無法確認 builder 設定。
-                    </div>
-                ) : null}
-
-                {chatHistory.length === 0 ? (
-                    <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                        {emptyStateText}
-                    </div>
-                ) : (
-                    chatHistory.map((message) => (
-                        <div
-                            key={message.id}
-                            className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                        >
-                            <div
-                                className={`max-w-[90%] rounded-xl px-4 py-3 md:max-w-[80%] ${
-                                    message.role === 'user'
-                                        ? 'bg-primary text-primary-foreground'
-                                        : 'w-full border bg-transparent shadow-sm'
-                                }`}
-                            >
-                                {message.role === 'user' ? (
-                                    <p className="whitespace-pre-wrap text-sm">{message.content}</p>
-                                ) : (
-                                    <div className="space-y-3">
-                                        {message.businessStatus === false && message.statusAns ? (
-                                            <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-                                                {message.statusAns}
-                                            </div>
-                                        ) : null}
-                                        <MarkdownBlock content={message.content} file={message.file} />
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    ))
-                )}
-
-                {isPending ? (
-                    <div className="flex justify-start">
-                        <div className="flex items-center gap-3 rounded-xl border bg-transparent px-6 py-4 text-muted-foreground shadow-sm">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            <span className="text-sm">{pendingLabel}</span>
-                        </div>
-                    </div>
-                ) : null}
-
-                {footerMode === 'inline' ? (
-                    <div className="pt-2">
-                        {footer}
-                    </div>
-                ) : null}
-            </div>
-
-            {footerMode === 'docked' ? (
-                <div className="border-t bg-card/50 p-4 pb-6 backdrop-blur">
-                    {footer}
+            {topPanel ? (
+                <div className="border-b bg-card/40 px-4 py-4 backdrop-blur md:px-8">
+                    {topPanel}
                 </div>
             ) : null}
+
+            <div className="min-h-0 flex-1 overflow-y-auto scroll-smooth">
+                <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col gap-6 p-4 md:p-8">
+                    {isInvalidBuilder ? (
+                        <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                            找不到對應的 builder，請從左側重新選擇。
+                        </div>
+                    ) : null}
+
+                    {isBuildersError ? (
+                        <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                            Builder 清單載入失敗，目前無法確認 builder 設定。
+                        </div>
+                    ) : null}
+
+                    {chatHistory.length === 0 ? (
+                        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+                            {emptyStateText}
+                        </div>
+                    ) : (
+                        chatHistory.map((message) => (
+                            <div
+                                key={message.id}
+                                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                            >
+                                <div
+                                    className={`max-w-[90%] rounded-xl px-4 py-3 md:max-w-[80%] ${
+                                        message.role === 'user'
+                                            ? 'bg-primary text-primary-foreground'
+                                            : 'w-full border bg-transparent shadow-sm'
+                                    }`}
+                                >
+                                    {message.role === 'user' ? (
+                                        <p className="whitespace-pre-wrap text-sm">{message.content}</p>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {message.businessStatus === false && message.statusAns ? (
+                                                <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                                                    {message.statusAns}
+                                                </div>
+                                            ) : null}
+                                            <MarkdownBlock content={message.content} file={message.file} />
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))
+                    )}
+
+                    {isPending ? (
+                        <div className="flex justify-start">
+                            <div className="flex items-center gap-3 rounded-xl border bg-transparent px-6 py-4 text-muted-foreground shadow-sm">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span className="text-sm">{pendingLabel}</span>
+                            </div>
+                        </div>
+                    ) : null}
+                </div>
+            </div>
+
+            <div className="border-t bg-card/50 p-4 pb-6 backdrop-blur">
+                {footer}
+            </div>
         </div>
     );
 }
@@ -779,16 +779,26 @@ function AstrologyProfileScreen(props: BuilderScreenProps) {
         }
     };
 
-    const footer = (
-        <div className="mx-auto max-w-4xl space-y-4">
-            <div className="rounded-2xl border bg-background p-4 shadow-sm">
-                <div className="space-y-4">
+    const topPanel = (
+        <div className="mx-auto w-full max-w-5xl">
+            <div className="rounded-2xl border bg-background/95 shadow-sm">
+                <div className="flex flex-col gap-1 border-b px-4 py-3 md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <p className="text-sm font-semibold">星座設定</p>
+                        <p className="text-xs text-muted-foreground">
+                            先調整太陽、月亮、上升；中間區域只拿來看對話，底部固定輸入需求。
+                        </p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">混合模式支援雙星座與 100% 配比。</p>
+                </div>
+
+                <div className="grid gap-3 p-4 lg:grid-cols-3">
                     {(Object.keys(ASTROLOGY_SLOT_LABELS) as AstrologySlotKey[]).map((slotKey) => {
                         const slotState = slots[slotKey];
                         const slotError = slotErrors[slotKey];
 
                         return (
-                            <div key={slotKey} className="space-y-2">
+                            <div key={slotKey} className="rounded-xl border bg-muted/20 p-3">
                                 <div className="flex items-center justify-between gap-3">
                                     <Label className="text-sm font-medium">{ASTROLOGY_SLOT_LABELS[slotKey]}</Label>
                                     {slotState.mode === 'single' ? (
@@ -804,71 +814,81 @@ function AstrologyProfileScreen(props: BuilderScreenProps) {
                                     )}
                                 </div>
 
-                                {slotState.mode === 'single' ? (
-                                    <Select
-                                        value={slotState.value}
-                                        onValueChange={(value) => updateSingleValue(slotKey, (value as AstrologySingleValue) ?? UNKNOWN_ZODIAC_VALUE)}
-                                    >
-                                        <SelectTrigger className="h-10 w-full">
-                                            <SelectValue placeholder="不知道（預設）" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={UNKNOWN_ZODIAC_VALUE}>不知道（預設）</SelectItem>
-                                            {ZODIAC_OPTIONS.map((option) => (
-                                                <SelectItem key={option.key} value={option.key}>
-                                                    {option.label}
-                                                </SelectItem>
+                                <div className="mt-2 space-y-2">
+                                    {slotState.mode === 'single' ? (
+                                        <Select
+                                            value={slotState.value}
+                                            onValueChange={(value) => updateSingleValue(slotKey, (value as AstrologySingleValue) ?? UNKNOWN_ZODIAC_VALUE)}
+                                        >
+                                            <SelectTrigger className="h-9 w-full">
+                                                <SelectValue placeholder="不知道（預設）" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value={UNKNOWN_ZODIAC_VALUE}>不知道（預設）</SelectItem>
+                                                {ZODIAC_OPTIONS.map((option) => (
+                                                    <SelectItem key={option.key} value={option.key}>
+                                                        {option.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {slotState.entries.map((entry, entryIndex) => (
+                                                <div key={`${slotKey}-${entryIndex}`} className="grid gap-2 grid-cols-[minmax(0,1fr)_80px]">
+                                                    <Select
+                                                        value={entry.key}
+                                                        onValueChange={(value) => updateWeightedKey(slotKey, entryIndex as 0 | 1, value as ZodiacKey)}
+                                                    >
+                                                        <SelectTrigger className="h-9 w-full">
+                                                            <SelectValue placeholder="選擇星座" />
+                                                        </SelectTrigger>
+                                                        <SelectContent>
+                                                            {ZODIAC_OPTIONS.map((option) => (
+                                                                <SelectItem key={option.key} value={option.key}>
+                                                                    {option.label}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <Input
+                                                        type="number"
+                                                        min={0}
+                                                        max={100}
+                                                        value={entry.weightPercent}
+                                                        onChange={(event) => updateWeightedPercent(slotKey, entryIndex as 0 | 1, event.target.value)}
+                                                        className="h-9"
+                                                        placeholder="%"
+                                                    />
+                                                </div>
                                             ))}
-                                        </SelectContent>
-                                    </Select>
-                                ) : (
-                                    <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_112px_minmax(0,1fr)_112px]">
-                                        {slotState.entries.map((entry, entryIndex) => (
-                                            <div key={`${slotKey}-${entryIndex}`} className="contents">
-                                                <Select
-                                                    value={entry.key}
-                                                    onValueChange={(value) => updateWeightedKey(slotKey, entryIndex as 0 | 1, value as ZodiacKey)}
-                                                >
-                                                    <SelectTrigger className="h-10 w-full">
-                                                        <SelectValue placeholder="選擇星座" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {ZODIAC_OPTIONS.map((option) => (
-                                                            <SelectItem key={option.key} value={option.key}>
-                                                                {option.label}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <Input
-                                                    type="number"
-                                                    min={0}
-                                                    max={100}
-                                                    value={entry.weightPercent}
-                                                    onChange={(event) => updateWeightedPercent(slotKey, entryIndex as 0 | 1, event.target.value)}
-                                                    className="h-10"
-                                                    placeholder="%"
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                                        </div>
+                                    )}
 
-                                {slotError ? (
-                                    <p className="text-xs text-destructive">{slotError}</p>
-                                ) : null}
+                                    {slotError ? (
+                                        <p className="text-xs text-destructive">{slotError}</p>
+                                    ) : (
+                                        <p className="text-xs text-muted-foreground">
+                                            {slotState.mode === 'single' ? '未提供就不送這個欄位。' : '第二格百分比會自動互補。'}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         );
                     })}
                 </div>
             </div>
+        </div>
+    );
 
-            <div className="space-y-2">
+    const footer = (
+        <div className="mx-auto max-w-5xl space-y-2">
+            <div className="flex items-end gap-3 rounded-2xl border bg-background p-3 shadow-sm">
                 <Textarea
                     value={text}
                     onChange={(event) => setText(event.target.value)}
                     placeholder="輸入需求，送出後會用固定 profile-consult envelope 模擬..."
-                    className="min-h-[120px] resize-y"
+                    className="min-h-[72px] flex-1 resize-none border-0 px-2 py-3 shadow-none focus-visible:ring-0"
                     disabled={profileConsultMutation.isPending}
                     onKeyDown={(event) => {
                         if (event.nativeEvent.isComposing) return;
@@ -878,13 +898,14 @@ function AstrologyProfileScreen(props: BuilderScreenProps) {
                         }
                     }}
                 />
-                <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                    <span>混合模式會自動互補百分比；兩個星座不可重複。</span>
-                    <Button type="button" onClick={() => void handleSubmit()} disabled={submitDisabled}>
-                        <Send className="h-4 w-4" />
-                        送出 profile consult
-                    </Button>
-                </div>
+                <Button type="button" onClick={() => void handleSubmit()} disabled={submitDisabled} className="shrink-0">
+                    <Send className="h-4 w-4" />
+                    送出 profile consult
+                </Button>
+            </div>
+            <div className="flex items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
+                <span>混合模式會自動互補百分比；兩個星座不可重複。</span>
+                <span>快捷鍵：Ctrl/Cmd + Enter</span>
             </div>
         </div>
     );
@@ -896,8 +917,8 @@ function AstrologyProfileScreen(props: BuilderScreenProps) {
             isPending={profileConsultMutation.isPending}
             pendingLabel="AI 正在分析星座骨架並產生回應..."
             emptyStateText="設定太陽、月亮、上升與需求後送出，開始模擬 astrology profile consult。"
+            topPanel={topPanel}
             footer={footer}
-            footerMode="inline"
         />
     );
 }

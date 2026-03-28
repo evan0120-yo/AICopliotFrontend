@@ -157,20 +157,51 @@ assistant 回應則統一交給 `MarkdownBlock` render。
 ```text
 AstrologyProfileScreen
     │
-    ├── sun_sign
-    ├── moon_sign
-    ├── rising_sign
-    ├── text
+    ├── Top Config Panel
+    │     ├── sun_sign
+    │     ├── moon_sign
+    │     └── rising_sign
+    │
+    ├── Conversation Area
+    │     └── chat history / pending / empty state
+    │
+    ├── Bottom Composer
+    │     └── text
+    │
     └── POST /api/profile-consult
 ```
 
 ### 畫面怎麼長
 
-固定三列：
+它現在不是把整包星座表單塞在底部，而是明確拆成三段：
+
+- 上方 `Top Config Panel`
+- 中間 `Conversation Area`
+- 底部 `Bottom Composer`
+
+其中上方設定區固定承接三個 slot：
 
 - 太陽
 - 月亮
 - 上升
+
+desktop 會盡量壓成高密度多欄，避免再回到整頁往下堆的大表單體感；mobile 才退回單欄。
+
+中間對話區現在只負責：
+
+- empty state
+- user bubble
+- assistant bubble
+- pending 狀態
+
+真正會捲動的也只有這塊。
+
+底部則回到比較接近 generic consult 的節奏：
+
+- 固定 multiline text input
+- 固定送出按鈕
+- `Ctrl+Enter` / `Cmd+Enter` 送出
+- 單純 `Enter` 換行
 
 每列都支援兩種模式：
 
@@ -247,6 +278,19 @@ single mode 的 `不知道` 不會送成 `"unknown"` 到 backend。
          │
          ▼
       POST /api/profile-consult
+```
+
+這條線現在的版面責任也已經被切乾淨：
+
+```text
+Top Config Panel
+  -> 只負責設定 profile
+
+Conversation Area
+  -> 只負責閱讀對話
+
+Bottom Composer
+  -> 只負責補需求與送出
 ```
 
 這條線目前有幾個刻意寫死的地方：
@@ -560,6 +604,21 @@ submit success 後：
 
 這是 deliberate UX，不是 reset-all。
 
+### layout call chain
+
+```text
+AstrologyProfileScreen
+  -> topPanel
+  -> footer
+  -> ConversationLayout
+       ├── header
+       ├── topPanel
+       ├── main scroll area
+       └── docked footer
+```
+
+也就是 astrology 現在已不再使用舊的 inline footer 方案。
+
 ---
 
 ## E. Builder Graph Editor
@@ -652,11 +711,16 @@ query invalidation 會打：
 現在 `appId / subjectId / analysisType` 都寫死。
 它比較像 Internal 模擬入口，不是完整對外整合版。
 
-### 3. graph metadata editing 還不完整
+### 3. astrology config panel 仍是 always-visible
+
+現在上方設定區已經壓成 compact panel，但還沒有收合、drawer、或 modal 版本。
+如果後面 slot 規則再變多，還有第二輪 UI 收斂空間。
+
+### 4. graph metadata editing 還不完整
 
 metadata 沒被洗掉，但也還沒 fully exposed。
 
-### 4. 沒有 automated frontend tests
+### 5. 沒有 automated frontend tests
 
 目前仍是：
 
