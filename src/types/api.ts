@@ -58,8 +58,11 @@ export interface WeightedZodiacEntry {
     weightPercent: number;
 }
 
+export type ProfileConsultMode = 'preview_full' | 'preview_prompt_body_only' | 'live';
+
 export interface ProfileConsultRequestData {
     builderId: number;
     text?: string;
+    mode: ProfileConsultMode;
     payload: Record<string, string[] | WeightedZodiacEntry[]>;
 }

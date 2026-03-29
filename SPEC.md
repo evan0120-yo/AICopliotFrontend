@@ -273,11 +273,10 @@ weighted mode
 目前 astrology screen 採固定三段式：
 
 ```text
-Header
-  -> builder title / description
-
 Top Config Panel
   -> sun / moon / rising
+  -> response mode selector
+  -> collapse / expand action
   -> desktop 優先多欄高密度排列
   -> weighted mode 只展開當前 slot 的第二組 select + weight
 
@@ -290,6 +289,12 @@ Bottom Composer
   -> 固定 submit button
 ```
 
+補充規則：
+- astrology profile 不再顯示 builder title / description header
+- top config panel 直接成為右側內容區最上方的主要控制入口
+- multiline text input 預設帶入：`請分析這個人的核心性格與外在社交表現。`
+- submit 成功後，text input 應回到同一個預設值，而不是清空
+
 各 slot 的最小畫面語意：
 
 ```text
@@ -300,6 +305,32 @@ Bottom Composer
 ```
 
 top config panel 應維持 compact 版面，不再採整頁大型單列表單作為主要輸入區。
+
+## Current Extension: Astrology Config Collapse
+
+astrology screen 目前已支援：
+
+```text
+expanded
+  -> 顯示完整 top config panel
+
+collapsed
+  -> 收起大部分 controls
+  -> 只保留 summary row
+  -> conversation area 取得更多高度
+```
+
+summary row 至少應包含：
+- 太陽目前值
+- 月亮目前值
+- 上升目前值
+- 目前 response mode
+- 一個明確的展開 / 編輯入口
+
+規則：
+- collapse / expand 不應清空 slot state
+- collapse 後仍保留 bottom composer 與 conversation area 結構
+- collapse 的目的是節省垂直空間，不是切換 route 或打開 modal
 
 ### Submit Shortcut Rules
 
@@ -574,11 +605,37 @@ template 套入 source
   - `analysisType=astrology`
 - dynamic fields:
   - `builderId`
+  - `mode`
   - `sun_sign`
   - `moon_sign`
   - `rising_sign`
   - `text`
 - return: `ConsultBusinessResponse`
+
+## Current Extension: Profile Consult Preview Consumption
+
+frontend 在 `AstrologyProfileScreen` 上，仍只應消費 `ConsultBusinessResponse.response`。
+
+目前需要明確區分 backend 的 preview 輸出策略：
+
+```text
+preview_full
+  -> backend 回完整 prompt preview
+  -> 不適合直接當成顧客答案閱讀
+
+preview_prompt_body_only
+  -> backend 只回組裝後的主體 prompt body
+  -> frontend 可直接把 response 顯示在 assistant area
+
+live
+  -> backend 回真正 AI final answer
+  -> frontend 一樣只顯示 response
+```
+
+重要規則：
+- frontend 不應自行從 `response` 字串中解析或裁切 `[INSTRUCTIONS]` / `[USER_MESSAGE]` 等區塊
+- 若 astronomy prompt tuning 需要只看主體 prompt，應由 backend 提供 `preview_prompt_body_only`
+- frontend 的 assistant area 始終只 render `response`，不消費 `responseDetail`
 
 ### `useBuilderGraph`
 

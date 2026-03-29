@@ -167,6 +167,40 @@ AstrologyProfileScreen
              -> POST /api/profile-consult
 ```
 
+### Scenario group: astrology config collapse
+
+```text
+AstrologyProfileScreen
+      │
+      ├── top config panel 預設可展開
+      ├── 點擊收合
+      │      -> 只保留 summary row
+      │      -> conversation area 取得更多高度
+      └── 點擊展開
+             -> 回到完整設定表單
+```
+
+### Scenario group: profile consult preview consumption
+
+```text
+backend /api/profile-consult
+      │
+      ├── preview_full
+      │      -> 完整 prompt preview
+      │
+      ├── preview_prompt_body_only
+      │      -> 只回組裝後的主體 prompt body
+      │
+      └── live
+             -> 真正 AI final answer
+```
+
+前端規則：
+- astrology screen 的 assistant 區塊仍只消費 `response`
+- frontend 不應自行從完整 preview 內裁切 `[INSTRUCTIONS]`、`[USER_MESSAGE]` 等區塊
+- 若要做 prompt tuning，應由 backend 直接提供 `preview_prompt_body_only`，讓 assistant area 直接顯示這段 body
+- 若仍使用 `preview_full`，其內容應視為 debug / preview，不是顧客看的最終答案
+
 ### Scenario group: builder graph
 
 ```text
@@ -345,9 +379,6 @@ payload baseline：
 目前版型：
 
 ```text
-Header
-  -> builder title / description
-
 Top Config Panel
   -> 太陽 / 月亮 / 上升
   -> 不再單行單行往下堆
@@ -366,8 +397,13 @@ Bottom Composer
 
 - astrology profile 不應再讓大型設定表單直接擠壓對話區高度
 - 中間聊天區應和其他 builder 一樣維持主要閱讀區角色
+- astrology profile 不再額外顯示 builder title / description header 區塊
 - 星座設定放在上方，desktop 優先以高密度多欄配置減少垂直浪費
 - top config panel 與 bottom composer 不承擔主要訊息捲動；右側主捲動應只作用於 conversation area
+
+目前補充：
+- top config panel 已支援收合 / 展開
+- 收合後保留一行摘要，讓使用者仍看得到目前太陽 / 月亮 / 上升設定
 
 ## Admin Strategy
 

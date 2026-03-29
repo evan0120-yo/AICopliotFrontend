@@ -20,6 +20,7 @@ import { MarkdownBlock } from '@/components/features/markdown-block';
 import {
     BuilderSummary,
     ConsultFilePayload,
+    ProfileConsultMode,
     ProfileConsultRequestData,
     WeightedZodiacEntry,
     ZodiacKey,
@@ -33,6 +34,7 @@ const FILE_ACCEPT_VALUE = ALLOWED_EXTENSIONS.map((extension) => `.${extension}`)
 const ASTROLOGY_BUILDER_ID = 3;
 const ASTROLOGY_BUILDER_CODE = 'linkchat-astrology';
 const UNKNOWN_ZODIAC_VALUE = 'unknown';
+const DEFAULT_ASTROLOGY_TEXT = '請分析這個人的核心性格與外在社交表現。';
 
 const formSchema = z.object({
     text: z.string(),
@@ -125,6 +127,7 @@ type ConversationLayoutProps = BuilderScreenProps & {
     footer: React.ReactNode;
     topPanel?: React.ReactNode;
     headerAction?: React.ReactNode;
+    showHeader?: boolean;
 };
 
 const ASTROLOGY_SLOT_LABELS: Record<AstrologySlotKey, string> = {
@@ -146,6 +149,12 @@ const ZODIAC_OPTIONS: Array<{ key: ZodiacKey; label: string }> = [
     { key: 'capricorn', label: '魔羯' },
     { key: 'aquarius', label: '水瓶' },
     { key: 'pisces', label: '雙魚' },
+];
+
+const PROFILE_CONSULT_MODE_OPTIONS: Array<{ value: ProfileConsultMode; label: string }> = [
+    { value: 'preview_prompt_body_only', label: '主體內容' },
+    { value: 'preview_full', label: '完整預覽' },
+    { value: 'live', label: 'Live' },
 ];
 
 let messageSequence = 0;
@@ -176,6 +185,19 @@ function getZodiacLabel(key: ZodiacKey) {
 
 function getNextDifferentZodiac(first: ZodiacKey) {
     return ZODIAC_OPTIONS.find((option) => option.key !== first)?.key ?? 'taurus';
+}
+
+function describeProfileConsultMode(mode: ProfileConsultMode) {
+    switch (mode) {
+        case 'preview_prompt_body_only':
+            return '主體內容';
+        case 'preview_full':
+            return '完整預覽';
+        case 'live':
+            return 'Live';
+        default:
+            return mode;
+    }
 }
 
 function createDefaultAstrologyState(): AstrologyFormState {
@@ -333,36 +355,39 @@ function ConversationLayout({
     footer,
     topPanel,
     headerAction,
+    showHeader = true,
 }: ConversationLayoutProps) {
     return (
         <div className="relative flex h-full min-h-0 flex-col bg-background">
-            <div className="z-10 flex items-center justify-between border-b bg-card p-4">
-                <div className="flex items-center gap-3">
-                    <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
-                        <SheetTrigger render={<Button variant="ghost" size="icon" className="md:hidden" />}>
-                            <Menu className="h-5 w-5" />
-                        </SheetTrigger>
-                        <SheetContent side="left" className="w-64 p-0">
-                            <Sidebar />
-                        </SheetContent>
-                    </Sheet>
+            {showHeader ? (
+                <div className="z-10 flex items-center justify-between border-b bg-card p-4">
+                    <div className="flex items-center gap-3">
+                        <Sheet open={isSidebarOpen} onOpenChange={setIsSidebarOpen}>
+                            <SheetTrigger render={<Button variant="ghost" size="icon" className="md:hidden" />}>
+                                <Menu className="h-5 w-5" />
+                            </SheetTrigger>
+                            <SheetContent side="left" className="w-64 p-0">
+                                <Sidebar />
+                            </SheetContent>
+                        </Sheet>
 
-                    <div className="flex flex-col">
-                        <span className="text-xs font-semibold uppercase text-muted-foreground">
-                            {currentBuilder?.groupLabel || `Builder ${builderIdParam}`}
-                        </span>
-                        <h1 className="text-sm font-semibold md:text-base">
-                            {currentBuilder?.name || 'Consultation Session'}
-                        </h1>
-                        <p className="hidden text-xs text-muted-foreground md:block">
-                            {currentBuilder?.description
-                                || (isBuildersLoading ? '載入 builder 資訊中...' : '找不到 builder 描述')}
-                        </p>
+                        <div className="flex flex-col">
+                            <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                {currentBuilder?.groupLabel || `Builder ${builderIdParam}`}
+                            </span>
+                            <h1 className="text-sm font-semibold md:text-base">
+                                {currentBuilder?.name || 'Consultation Session'}
+                            </h1>
+                            <p className="hidden text-xs text-muted-foreground md:block">
+                                {currentBuilder?.description
+                                    || (isBuildersLoading ? '載入 builder 資訊中...' : '找不到 builder 描述')}
+                            </p>
+                        </div>
                     </div>
-                </div>
 
-                {headerAction ?? null}
-            </div>
+                    {headerAction ?? null}
+                </div>
+            ) : null}
 
             {topPanel ? (
                 <div className="border-b bg-card/40 px-4 py-4 backdrop-blur md:px-8">
@@ -621,8 +646,10 @@ function GenericConsultScreen(props: BuilderScreenProps) {
 
 function AstrologyProfileScreen(props: BuilderScreenProps) {
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-    const [text, setText] = useState('');
+    const [text, setText] = useState(DEFAULT_ASTROLOGY_TEXT);
     const [slots, setSlots] = useState<AstrologyFormState>(createDefaultAstrologyState);
+    const [responseMode, setResponseMode] = useState<ProfileConsultMode>('preview_prompt_body_only');
+    const [isConfigCollapsed, setIsConfigCollapsed] = useState(false);
     const profileConsultMutation = useProfileConsult();
     const slotErrors = useMemo(() => buildAstrologySlotErrors(slots), [slots]);
     const submitDisabled = profileConsultMutation.isPending || props.isInvalidBuilder;
@@ -740,11 +767,12 @@ function AstrologyProfileScreen(props: BuilderScreenProps) {
         try {
             const response = await profileConsultMutation.mutateAsync({
                 builderId: props.builderId,
+                mode: responseMode,
                 text: text.trim(),
                 payload,
             });
 
-            setText('');
+            setText(DEFAULT_ASTROLOGY_TEXT);
             setChatHistory((previous) => [
                 ...previous.map((message) => (
                     message.id === userMessageId
@@ -782,101 +810,137 @@ function AstrologyProfileScreen(props: BuilderScreenProps) {
     const topPanel = (
         <div className="mx-auto w-full max-w-5xl">
             <div className="rounded-2xl border bg-background/95 shadow-sm">
-                <div className="flex flex-col gap-1 border-b px-4 py-3 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-col gap-3 border-b px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
                     <div>
                         <p className="text-sm font-semibold">星座設定</p>
                         <p className="text-xs text-muted-foreground">
                             先調整太陽、月亮、上升；中間區域只拿來看對話，底部固定輸入需求。
                         </p>
                     </div>
-                    <p className="text-xs text-muted-foreground">混合模式支援雙星座與 100% 配比。</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Select value={responseMode} onValueChange={(value) => setResponseMode(value as ProfileConsultMode)}>
+                            <SelectTrigger className="h-9 w-[148px]">
+                                <SelectValue placeholder="回傳模式" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {PROFILE_CONSULT_MODE_OPTIONS.map((option) => (
+                                    <SelectItem key={option.value} value={option.value}>
+                                        {option.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsConfigCollapsed((previous) => !previous)}
+                        >
+                            {isConfigCollapsed ? '展開設定' : '收合設定'}
+                        </Button>
+                    </div>
                 </div>
 
-                <div className="grid gap-3 p-4 lg:grid-cols-3">
-                    {(Object.keys(ASTROLOGY_SLOT_LABELS) as AstrologySlotKey[]).map((slotKey) => {
-                        const slotState = slots[slotKey];
-                        const slotError = slotErrors[slotKey];
-
-                        return (
-                            <div key={slotKey} className="rounded-xl border bg-muted/20 p-3">
-                                <div className="flex items-center justify-between gap-3">
-                                    <Label className="text-sm font-medium">{ASTROLOGY_SLOT_LABELS[slotKey]}</Label>
-                                    {slotState.mode === 'single' ? (
-                                        <Button type="button" variant="outline" size="sm" onClick={() => switchToWeighted(slotKey)}>
-                                            <Plus className="h-3.5 w-3.5" />
-                                            混合
-                                        </Button>
-                                    ) : (
-                                        <Button type="button" variant="outline" size="sm" onClick={() => switchToSingle(slotKey)}>
-                                            <Minus className="h-3.5 w-3.5" />
-                                            單一
-                                        </Button>
-                                    )}
-                                </div>
-
-                                <div className="mt-2 space-y-2">
-                                    {slotState.mode === 'single' ? (
-                                        <Select
-                                            value={slotState.value}
-                                            onValueChange={(value) => updateSingleValue(slotKey, (value as AstrologySingleValue) ?? UNKNOWN_ZODIAC_VALUE)}
-                                        >
-                                            <SelectTrigger className="h-9 w-full">
-                                                <SelectValue placeholder="不知道（預設）" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value={UNKNOWN_ZODIAC_VALUE}>不知道（預設）</SelectItem>
-                                                {ZODIAC_OPTIONS.map((option) => (
-                                                    <SelectItem key={option.key} value={option.key}>
-                                                        {option.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    ) : (
-                                        <div className="space-y-2">
-                                            {slotState.entries.map((entry, entryIndex) => (
-                                                <div key={`${slotKey}-${entryIndex}`} className="grid gap-2 grid-cols-[minmax(0,1fr)_80px]">
-                                                    <Select
-                                                        value={entry.key}
-                                                        onValueChange={(value) => updateWeightedKey(slotKey, entryIndex as 0 | 1, value as ZodiacKey)}
-                                                    >
-                                                        <SelectTrigger className="h-9 w-full">
-                                                            <SelectValue placeholder="選擇星座" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            {ZODIAC_OPTIONS.map((option) => (
-                                                                <SelectItem key={option.key} value={option.key}>
-                                                                    {option.label}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <Input
-                                                        type="number"
-                                                        min={0}
-                                                        max={100}
-                                                        value={entry.weightPercent}
-                                                        onChange={(event) => updateWeightedPercent(slotKey, entryIndex as 0 | 1, event.target.value)}
-                                                        className="h-9"
-                                                        placeholder="%"
-                                                    />
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {slotError ? (
-                                        <p className="text-xs text-destructive">{slotError}</p>
-                                    ) : (
-                                        <p className="text-xs text-muted-foreground">
-                                            {slotState.mode === 'single' ? '未提供就不送這個欄位。' : '第二格百分比會自動互補。'}
-                                        </p>
-                                    )}
-                                </div>
+                {isConfigCollapsed ? (
+                    <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
+                        {(Object.keys(ASTROLOGY_SLOT_LABELS) as AstrologySlotKey[]).map((slotKey) => (
+                            <div key={slotKey} className="rounded-xl border bg-muted/20 px-3 py-2">
+                                <p className="text-xs text-muted-foreground">{ASTROLOGY_SLOT_LABELS[slotKey]}</p>
+                                <p className="mt-1 text-sm font-medium">{describeAstrologySlot(slots[slotKey])}</p>
                             </div>
-                        );
-                    })}
-                </div>
+                        ))}
+                        <div className="rounded-xl border bg-muted/20 px-3 py-2">
+                            <p className="text-xs text-muted-foreground">回傳模式</p>
+                            <p className="mt-1 text-sm font-medium">{describeProfileConsultMode(responseMode)}</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="grid gap-3 p-4 lg:grid-cols-3">
+                        {(Object.keys(ASTROLOGY_SLOT_LABELS) as AstrologySlotKey[]).map((slotKey) => {
+                            const slotState = slots[slotKey];
+                            const slotError = slotErrors[slotKey];
+
+                            return (
+                                <div key={slotKey} className="rounded-xl border bg-muted/20 p-3">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <Label className="text-sm font-medium">{ASTROLOGY_SLOT_LABELS[slotKey]}</Label>
+                                        {slotState.mode === 'single' ? (
+                                            <Button type="button" variant="outline" size="sm" onClick={() => switchToWeighted(slotKey)}>
+                                                <Plus className="h-3.5 w-3.5" />
+                                                混合
+                                            </Button>
+                                        ) : (
+                                            <Button type="button" variant="outline" size="sm" onClick={() => switchToSingle(slotKey)}>
+                                                <Minus className="h-3.5 w-3.5" />
+                                                單一
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    <div className="mt-2 space-y-2">
+                                        {slotState.mode === 'single' ? (
+                                            <Select
+                                                value={slotState.value}
+                                                onValueChange={(value) => updateSingleValue(slotKey, (value as AstrologySingleValue) ?? UNKNOWN_ZODIAC_VALUE)}
+                                            >
+                                                <SelectTrigger className="h-9 w-full">
+                                                    <SelectValue placeholder="不知道（預設）" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value={UNKNOWN_ZODIAC_VALUE}>不知道（預設）</SelectItem>
+                                                    {ZODIAC_OPTIONS.map((option) => (
+                                                        <SelectItem key={option.key} value={option.key}>
+                                                            {option.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {slotState.entries.map((entry, entryIndex) => (
+                                                    <div key={`${slotKey}-${entryIndex}`} className="grid gap-2 grid-cols-[minmax(0,1fr)_80px]">
+                                                        <Select
+                                                            value={entry.key}
+                                                            onValueChange={(value) => updateWeightedKey(slotKey, entryIndex as 0 | 1, value as ZodiacKey)}
+                                                        >
+                                                            <SelectTrigger className="h-9 w-full">
+                                                                <SelectValue placeholder="選擇星座" />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {ZODIAC_OPTIONS.map((option) => (
+                                                                    <SelectItem key={option.key} value={option.key}>
+                                                                        {option.label}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <Input
+                                                            type="number"
+                                                            min={0}
+                                                            max={100}
+                                                            value={entry.weightPercent}
+                                                            onChange={(event) => updateWeightedPercent(slotKey, entryIndex as 0 | 1, event.target.value)}
+                                                            className="h-9"
+                                                            placeholder="%"
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {slotError ? (
+                                            <p className="text-xs text-destructive">{slotError}</p>
+                                        ) : (
+                                            <p className="text-xs text-muted-foreground">
+                                                {slotState.mode === 'single' ? '未提供就不送這個欄位。' : '第二格百分比會自動互補。'}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -904,7 +968,7 @@ function AstrologyProfileScreen(props: BuilderScreenProps) {
                 </Button>
             </div>
             <div className="flex items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
-                <span>混合模式會自動互補百分比；兩個星座不可重複。</span>
+                <span>模式：{describeProfileConsultMode(responseMode)}。混合模式會自動互補百分比；兩個星座不可重複。</span>
                 <span>快捷鍵：Ctrl/Cmd + Enter</span>
             </div>
         </div>
@@ -919,6 +983,7 @@ function AstrologyProfileScreen(props: BuilderScreenProps) {
             emptyStateText="設定太陽、月亮、上升與需求後送出，開始模擬 astrology profile consult。"
             topPanel={topPanel}
             footer={footer}
+            showHeader={false}
         />
     );
 }

@@ -143,10 +143,14 @@ AstrologyProfileScreen
 
 - Given astrology profile screen 已載入
   When render
-  Then Header 下方應先顯示 top config panel
+  Then 不應額外顯示 builder title / description header
+  And top config panel 應位於右側內容區最上方
   And config panel 內應固定包含 `sun`、`moon`、`rising`
+  And config panel header 應顯示 response mode selector
+  And config panel header 應顯示收合 / 展開入口
   And 中間 conversation area 只顯示對話內容
   And 最下方應固定顯示 multiline text composer
+  And multiline text composer 預設值應為 `請分析這個人的核心性格與外在社交表現。`
 
 - Given 某一列為 single mode
   When render
@@ -208,10 +212,15 @@ AstrologyProfileScreen
   }
   ```
 
+- Given astrology profile screen 的 response mode selector 為 `preview_prompt_body_only`
+  When submit
+  Then frontend 應在 `/api/profile-consult` request 中送出 `mode=preview_prompt_body_only`
+
 - Given astrology profile screen submit 成功
   When backend 回傳 `ConsultBusinessResponse`
   Then assistant 區塊應顯示 response 內容
   And 失敗時應顯示對應 toast / inline error
+  And multiline text composer 應回到預設分析句
 
 - Given 使用者位於 astrology profile 的 multiline text input
   When 按下 `Ctrl+Enter` 或 `Cmd+Enter`
@@ -233,6 +242,31 @@ AstrologyProfileScreen
   Then 主要捲動應只作用於 conversation area
   And top config panel 應維持在聊天區上方
   And bottom composer 應固定在底部
+
+## Scenario Group: Astrology Config Collapse
+
+- Given astrology profile screen 已載入且 config panel 為展開狀態
+  When 使用者點擊收合
+  Then top config panel 應收成 summary row
+  And 不應清空 sun / moon / rising 的既有值
+  And conversation area 應因此取得更多可視高度
+
+- Given astrology profile screen 的 config panel 為收合狀態
+  When 使用者點擊展開
+  Then 應回到完整 config controls
+  And 原本 slot state 應完整保留
+
+## Scenario Group: Profile Consult Preview Consumption
+
+- Given backend `/api/profile-consult` 使用 `preview_prompt_body_only`
+  When astrology profile screen 收到 `ConsultBusinessResponse`
+  Then assistant area 應只顯示 `response`
+  And 畫面不需要再從完整 preview 手動找出主體 prompt 段落
+
+- Given backend `/api/profile-consult` 使用 `preview_full`
+  When astrology profile screen 收到 `ConsultBusinessResponse`
+  Then 該內容在語意上屬於完整 prompt preview
+  And frontend 不應自行解析 `[INSTRUCTIONS]` 或 `[USER_MESSAGE]` 來模擬裁切 body
 
 ## Scenario Group: Builder Graph Editor
 
