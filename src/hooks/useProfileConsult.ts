@@ -22,7 +22,6 @@ export const useProfileConsult = () => {
                     ],
                 },
                 text: data.text ?? '',
-                mode: data.mode,
             });
 
             if (!response.success || !response.data) {

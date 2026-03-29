@@ -20,7 +20,6 @@ import { MarkdownBlock } from '@/components/features/markdown-block';
 import {
     BuilderSummary,
     ConsultFilePayload,
-    ProfileConsultMode,
     ProfileConsultRequestData,
     WeightedZodiacEntry,
     ZodiacKey,
@@ -151,12 +150,6 @@ const ZODIAC_OPTIONS: Array<{ key: ZodiacKey; label: string }> = [
     { key: 'pisces', label: '雙魚' },
 ];
 
-const PROFILE_CONSULT_MODE_OPTIONS: Array<{ value: ProfileConsultMode; label: string }> = [
-    { value: 'preview_prompt_body_only', label: '主體內容' },
-    { value: 'preview_full', label: '完整預覽' },
-    { value: 'live', label: 'Live' },
-];
-
 let messageSequence = 0;
 
 function createMessageId() {
@@ -169,7 +162,13 @@ function buildUserMessageContent(text: string) {
 }
 
 function buildAssistantMessageContent(response: string, statusAns: string) {
-    return response.trim() || statusAns || '系統未提供額外內容。';
+    if (response.trim()) {
+        return response.trim();
+    }
+    if (statusAns.trim()) {
+        return '系統未提供 response 內容。';
+    }
+    return '系統未提供額外內容。';
 }
 
 function resolveBuilderScreenVariant(builderId: number, currentBuilder?: BuilderSummary): BuilderScreenVariant {
@@ -185,19 +184,6 @@ function getZodiacLabel(key: ZodiacKey) {
 
 function getNextDifferentZodiac(first: ZodiacKey) {
     return ZODIAC_OPTIONS.find((option) => option.key !== first)?.key ?? 'taurus';
-}
-
-function describeProfileConsultMode(mode: ProfileConsultMode) {
-    switch (mode) {
-        case 'preview_prompt_body_only':
-            return '主體內容';
-        case 'preview_full':
-            return '完整預覽';
-        case 'live':
-            return 'Live';
-        default:
-            return mode;
-    }
 }
 
 function createDefaultAstrologyState(): AstrologyFormState {
@@ -648,7 +634,6 @@ function AstrologyProfileScreen(props: BuilderScreenProps) {
     const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
     const [text, setText] = useState(DEFAULT_ASTROLOGY_TEXT);
     const [slots, setSlots] = useState<AstrologyFormState>(createDefaultAstrologyState);
-    const [responseMode, setResponseMode] = useState<ProfileConsultMode>('preview_prompt_body_only');
     const [isConfigCollapsed, setIsConfigCollapsed] = useState(false);
     const profileConsultMutation = useProfileConsult();
     const slotErrors = useMemo(() => buildAstrologySlotErrors(slots), [slots]);
@@ -767,7 +752,6 @@ function AstrologyProfileScreen(props: BuilderScreenProps) {
         try {
             const response = await profileConsultMutation.mutateAsync({
                 builderId: props.builderId,
-                mode: responseMode,
                 text: text.trim(),
                 payload,
             });
@@ -818,18 +802,6 @@ function AstrologyProfileScreen(props: BuilderScreenProps) {
                         </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <Select value={responseMode} onValueChange={(value) => setResponseMode(value as ProfileConsultMode)}>
-                            <SelectTrigger className="h-9 w-[148px]">
-                                <SelectValue placeholder="回傳模式" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {PROFILE_CONSULT_MODE_OPTIONS.map((option) => (
-                                    <SelectItem key={option.value} value={option.value}>
-                                        {option.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
                         <Button
                             type="button"
                             variant="outline"
@@ -842,17 +814,13 @@ function AstrologyProfileScreen(props: BuilderScreenProps) {
                 </div>
 
                 {isConfigCollapsed ? (
-                    <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
                         {(Object.keys(ASTROLOGY_SLOT_LABELS) as AstrologySlotKey[]).map((slotKey) => (
                             <div key={slotKey} className="rounded-xl border bg-muted/20 px-3 py-2">
                                 <p className="text-xs text-muted-foreground">{ASTROLOGY_SLOT_LABELS[slotKey]}</p>
                                 <p className="mt-1 text-sm font-medium">{describeAstrologySlot(slots[slotKey])}</p>
                             </div>
                         ))}
-                        <div className="rounded-xl border bg-muted/20 px-3 py-2">
-                            <p className="text-xs text-muted-foreground">回傳模式</p>
-                            <p className="mt-1 text-sm font-medium">{describeProfileConsultMode(responseMode)}</p>
-                        </div>
                     </div>
                 ) : (
                     <div className="grid gap-3 p-4 lg:grid-cols-3">
@@ -968,7 +936,7 @@ function AstrologyProfileScreen(props: BuilderScreenProps) {
                 </Button>
             </div>
             <div className="flex items-center justify-between gap-3 px-1 text-xs text-muted-foreground">
-                <span>模式：{describeProfileConsultMode(responseMode)}。混合模式會自動互補百分比；兩個星座不可重複。</span>
+                <span>回傳模式由後端啟動設定控制。混合模式會自動互補百分比；兩個星座不可重複。</span>
                 <span>快捷鍵：Ctrl/Cmd + Enter</span>
             </div>
         </div>

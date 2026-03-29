@@ -201,6 +201,24 @@ backend /api/profile-consult
 - 若要做 prompt tuning，應由 backend 直接提供 `preview_prompt_body_only`，讓 assistant area 直接顯示這段 body
 - 若仍使用 `preview_full`，其內容應視為 debug / preview，不是顧客看的最終答案
 
+### Scenario group: backend-controlled preview mode for internal test UI
+
+```text
+Internal React test UI
+      │
+      ├── 不再由前端 selector 決定 mode
+      ├── 不再於 /api/profile-consult request 中送出 mode
+      ├── backend 依 server-side default mode 回傳 response
+      └── frontend 只顯示收到的 response
+```
+
+前端規則：
+- 這個 React 頁面只服務 internal prompt / profile 測試，不承擔正式 integration mode 控制
+- preview mode 的 single source of truth 應回到 backend 啟動設定
+- astrology screen 不應再提供 client-side response mode selector
+- assistant area 仍只消費 `response`，但不再由前端決定該 response 對應哪一種 mode
+- 若操作者需要 request-level override，應改走 Postman / gRPC / manual debug route，而不是正式測試 UI
+
 ### Scenario group: builder graph
 
 ```text

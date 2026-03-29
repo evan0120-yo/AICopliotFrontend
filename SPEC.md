@@ -275,7 +275,6 @@ weighted mode
 ```text
 Top Config Panel
   -> sun / moon / rising
-  -> response mode selector
   -> collapse / expand action
   -> desktop 優先多欄高密度排列
   -> weighted mode 只展開當前 slot 的第二組 select + weight
@@ -324,13 +323,53 @@ summary row 至少應包含：
 - 太陽目前值
 - 月亮目前值
 - 上升目前值
-- 目前 response mode
 - 一個明確的展開 / 編輯入口
 
 規則：
 - collapse / expand 不應清空 slot state
 - collapse 後仍保留 bottom composer 與 conversation area 結構
 - collapse 的目的是節省垂直空間，不是切換 route 或打開 modal
+
+## Current Extension: Backend-Controlled Preview Mode For Internal Test UI
+
+### Goal
+
+- internal React 測試頁不再控制 preview mode
+- `/api/profile-consult` 的 mode 應由 backend server-side default mode 決定
+- frontend 只負責送 profile data 與顯示 backend 已決定的 `response`
+
+### Current UI Contract
+
+```text
+Top Config Panel
+  -> 保留 sun / moon / rising
+  -> 保留 collapse / expand
+  -> 不提供 response mode selector
+
+Conversation Area
+  -> 繼續只顯示 `response`
+  -> 不裁切、不解析 mode
+
+Bottom Composer
+  -> 固定 multiline text input
+  -> 固定 submit button
+```
+
+### Current Request Contract
+
+- internal React 測試頁 submit `/api/profile-consult` 時，不送出 `mode`
+- backend 依：
+  - `INTERNAL_AI_COPILOT_AI_DEFAULT_MODE`
+  - legacy preview flag
+  - fallback `live`
+  決定本次 response 內容
+
+### Current Behavior Rules
+
+- internal React 測試頁屬於 dumb client，不應覆寫 backend preview mode
+- frontend 收到什麼 `response` 就顯示什麼，不對 `preview_full` 做字串裁切
+- 若要切換 `preview_full / preview_prompt_body_only / live`，應以 backend 啟動設定為主
+- 正式 external integration 仍以 gRPC contract 為準，不依賴這個 React 測試頁的 mode UI
 
 ### Submit Shortcut Rules
 
@@ -605,7 +644,6 @@ template 套入 source
   - `analysisType=astrology`
 - dynamic fields:
   - `builderId`
-  - `mode`
   - `sun_sign`
   - `moon_sign`
   - `rising_sign`
@@ -636,6 +674,7 @@ live
 - frontend 不應自行從 `response` 字串中解析或裁切 `[INSTRUCTIONS]` / `[USER_MESSAGE]` 等區塊
 - 若 astronomy prompt tuning 需要只看主體 prompt，應由 backend 提供 `preview_prompt_body_only`
 - frontend 的 assistant area 始終只 render `response`，不消費 `responseDetail`
+- 若 backend 回傳 `response=""`，frontend 不應改顯示 `statusAns` 原文，而應顯示固定 fallback 文案
 
 ### `useBuilderGraph`
 

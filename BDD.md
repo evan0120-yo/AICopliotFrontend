@@ -146,7 +146,6 @@ AstrologyProfileScreen
   Then 不應額外顯示 builder title / description header
   And top config panel 應位於右側內容區最上方
   And config panel 內應固定包含 `sun`、`moon`、`rising`
-  And config panel header 應顯示 response mode selector
   And config panel header 應顯示收合 / 展開入口
   And 中間 conversation area 只顯示對話內容
   And 最下方應固定顯示 multiline text composer
@@ -212,10 +211,6 @@ AstrologyProfileScreen
   }
   ```
 
-- Given astrology profile screen 的 response mode selector 為 `preview_prompt_body_only`
-  When submit
-  Then frontend 應在 `/api/profile-consult` request 中送出 `mode=preview_prompt_body_only`
-
 - Given astrology profile screen submit 成功
   When backend 回傳 `ConsultBusinessResponse`
   Then assistant 區塊應顯示 response 內容
@@ -267,6 +262,27 @@ AstrologyProfileScreen
   When astrology profile screen 收到 `ConsultBusinessResponse`
   Then 該內容在語意上屬於完整 prompt preview
   And frontend 不應自行解析 `[INSTRUCTIONS]` 或 `[USER_MESSAGE]` 來模擬裁切 body
+
+- Given astrology profile screen 收到 `ConsultBusinessResponse`
+  When `response` 為空字串但 `statusAns` 有值
+  Then assistant area 不應直接顯示 `statusAns` 原文
+  And 應顯示前端固定 fallback 文案
+
+## Scenario Group: Backend-Controlled Preview Mode For Internal Test UI
+
+- Given internal React astrology test UI 採 backend-controlled preview mode
+  When astrology profile screen render
+  Then config panel header 不應再顯示 response mode selector
+
+- Given internal React astrology test UI 採 backend-controlled preview mode
+  When submit `/api/profile-consult`
+  Then frontend request 不應再送出 `mode`
+  And backend 應自行依 server-side default mode 決定 response 內容
+
+- Given internal React astrology test UI 採 backend-controlled preview mode
+  When assistant area 收到 `ConsultBusinessResponse`
+  Then frontend 應只顯示 `response`
+  And 不應自行推斷目前是 `preview_full`、`preview_prompt_body_only` 或 `live`
 
 ## Scenario Group: Builder Graph Editor
 

@@ -573,6 +573,9 @@ AstrologyProfileScreen
 - `payload`
 - `text`
 
+這條線現在**不再**由前端送 `mode`。
+preview mode 的決定權已回到 backend 啟動設定，這個 React 頁只負責送 profile data，收到什麼 `response` 就顯示什麼。
+
 ### payload 規則
 
 `buildAstrologyPayload()` 目前會產生：
@@ -598,7 +601,7 @@ astrology textarea：
 
 submit success 後：
 
-- `text` 會清空
+- `text` 會回到預設分析句
 - `slots` 保留
 - chat history append assistant message
 
@@ -618,6 +621,27 @@ AstrologyProfileScreen
 ```
 
 也就是 astrology 現在已不再使用舊的 inline footer 方案。
+
+### preview / response 顯示規則
+
+assistant area 現在只消費 backend 回來的 `response`。
+
+```text
+backend 決定 mode
+  ├── preview_full
+  ├── preview_prompt_body_only
+  └── live
+
+frontend
+  -> 不送 mode
+  -> 不裁切 preview 字串
+  -> 不用 statusAns 來模擬最終內容
+  -> 只顯示 response
+```
+
+這代表 internal React 測試頁現在比較像 dumb client，不再自己控制 preview mode。
+
+若 backend 回 `response=""`，前端目前也不會把 `statusAns` 原文直接塞進 assistant bubble，而是退回固定 fallback 文案。這樣可以避免像 `PROMPT_PREVIEW` 之類的技術字串直接跑到使用者可見內容。
 
 ---
 
@@ -711,9 +735,16 @@ query invalidation 會打：
 現在 `appId / subjectId / analysisType` 都寫死。
 它比較像 Internal 模擬入口，不是完整對外整合版。
 
-### 3. astrology config panel 仍是 always-visible
+### 3. astrology config panel 雖可收合，但仍不是更深層的 secondary panel
 
-現在上方設定區已經壓成 compact panel，但還沒有收合、drawer、或 modal 版本。
+現在上方設定區已經支援 `收合 / 展開`，收合後只保留摘要列，conversation area 會取得更多高度。
+
+但它仍然是頁面內的 top panel，不是：
+
+- drawer
+- modal
+- 獨立 settings sheet
+
 如果後面 slot 規則再變多，還有第二輪 UI 收斂空間。
 
 ### 4. graph metadata editing 還不完整
