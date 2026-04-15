@@ -239,8 +239,9 @@ builderCode = line-memo-crud
 ```text
 appId?        optional
 messageText
-referenceTime
-timeZone
+useCustomCurrentTime
+referenceTime?   debug override only
+timeZone?        debug override only
 ```
 
 ### Submit Contract
@@ -249,16 +250,15 @@ timeZone
 {
   "appId": "",
   "builderId": 4,
-  "messageText": "小傑 明天 下午三點找我吃飯",
-  "referenceTime": "2026-04-14 10:00:00",
-  "timeZone": "Asia/Taipei"
+  "messageText": "小傑 明天 下午三點找我吃飯"
 }
 ```
 
 規則：
 - `appId` 可留空，供 local/dev tester 使用
-- `referenceTime` UI 以 `datetime-local` 輸入，但送出前應轉成 `YYYY-MM-DD HH:mm:ss`
-- `timeZone` 預設帶入瀏覽器目前時區，但畫面上可編輯
+- 預設不送 `referenceTime` / `timeZone`，讓 backend 自動補系統時間 / 系統時區
+- 只有勾選測試模式時，才顯示 `referenceTime` / `timeZone` 覆蓋欄位
+- `referenceTime` UI 以 `datetime-local` 輸入，且送出前應轉成 `YYYY-MM-DD HH:mm:ss`
 - multiline message input 以 `Ctrl+Enter` / `Cmd+Enter` 送出
 
 ### Response Contract

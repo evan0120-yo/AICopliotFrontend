@@ -147,19 +147,27 @@ LineTaskExtractScreen
     │
     ├─ appId?         optional
     ├─ messageText
-    ├─ referenceTime
-    ├─ timeZone
+    ├─ useCustomCurrentTime checkbox
+    ├─ referenceTime? debug override
+    ├─ timeZone? debug override
     └─ POST /api/line-task-consult
 ```
 
 - Given line task extraction screen 已載入
   When render
-  Then 畫面應顯示 `messageText`、`referenceTime`、`timeZone`
+  Then 畫面應顯示 `messageText`
+  And 畫面應顯示 `useCustomCurrentTime` checkbox
   And `appId` 應為可選欄位
 
 - Given line task extraction screen 已載入
   When 初始 render
-  Then `referenceTime` 應帶入目前時間
+  Then `useCustomCurrentTime` 應預設為未勾選
+  And `referenceTime` / `timeZone` 覆蓋欄位不應預設展開
+
+- Given 使用者勾選 `useCustomCurrentTime`
+  When render
+  Then 畫面應顯示 `referenceTime` 與 `timeZone`
+  And `referenceTime` 應帶入目前時間
   And `timeZone` 應帶入瀏覽器時區或 fallback 預設值
 
 - Given 使用者位於 line task extraction 的 multiline message input
@@ -174,7 +182,16 @@ LineTaskExtractScreen
 - Given line task extraction submit
   When mutation 送出
   Then frontend 應呼叫 `POST /api/line-task-consult`
-  And request body 應包含 `builderId`、`messageText`、`referenceTime`、`timeZone`
+  And request body 應包含 `builderId`、`messageText`
+
+- Given line task extraction submit
+  And `useCustomCurrentTime` 未勾選
+  When mutation 送出
+  Then request body 不應包含 `referenceTime` 與 `timeZone`
+
+- Given `useCustomCurrentTime` 已勾選
+  When mutation 送出
+  Then request body 應包含 `referenceTime` 與 `timeZone`
 
 - Given `referenceTime` 使用 `datetime-local` 輸入
   When submit

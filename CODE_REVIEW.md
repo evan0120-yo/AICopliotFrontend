@@ -503,15 +503,16 @@ LineTaskExtractScreen
 - `appId?`
 - `builderId`
 - `messageText`
-- `referenceTime`
-- `timeZone`
+- `referenceTime?`
+- `timeZone?`
 
 ### 畫面規則
 
 - `messageText` 用 multiline textarea
-- `referenceTime` 用 `datetime-local` 輸入
-- submit 前會轉成 `YYYY-MM-DD HH:mm:ss`
-- `timeZone` 預設帶瀏覽器時區
+- 預設只送 `builderId + messageText`
+- `useCustomCurrentTime` 未勾選時，backend 自動補系統時間 / 系統時區
+- 勾選 `useCustomCurrentTime` 後才顯示 `referenceTime / timeZone`
+- `referenceTime` 用 `datetime-local` 輸入，submit 前轉成 `YYYY-MM-DD HH:mm:ss`
 - 結果直接顯示 structured cards：
   - `operation`
   - `summary`

@@ -126,8 +126,9 @@ type LineTaskSubmission = {
     id: string;
     appId: string;
     messageText: string;
-    referenceTime: string;
-    timeZone: string;
+    referenceTime?: string;
+    timeZone?: string;
+    useCustomCurrentTime: boolean;
     response?: LineTaskConsultResponse;
     errorMessage?: string;
     deliveryStatus: 'pending' | 'success' | 'error';
@@ -500,8 +501,27 @@ function ConversationLayout({
 const lineTaskFormSchema = z.object({
     appId: z.string().optional(),
     messageText: z.string().trim().min(1, '請輸入口語訊息。'),
-    referenceTime: z.string().trim().min(1, '請提供 referenceTime。'),
-    timeZone: z.string().trim().min(1, '請提供 timeZone。'),
+    useCustomCurrentTime: z.boolean(),
+    referenceTime: z.string().optional(),
+    timeZone: z.string().optional(),
+}).superRefine((value, context) => {
+    if (!value.useCustomCurrentTime) {
+        return;
+    }
+    if (!value.referenceTime?.trim()) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['referenceTime'],
+            message: '請提供 referenceTime。',
+        });
+    }
+    if (!value.timeZone?.trim()) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['timeZone'],
+            message: '請提供 timeZone。',
+        });
+    }
 });
 
 type LineTaskFormValues = z.infer<typeof lineTaskFormSchema>;
@@ -510,6 +530,7 @@ function LineTaskExtractScreen(props: BuilderScreenProps) {
     const [submissions, setSubmissions] = useState<LineTaskSubmission[]>([]);
     const lineTaskConsultMutation = useLineTaskConsult();
     const {
+        control,
         register,
         handleSubmit,
         reset,
@@ -519,24 +540,30 @@ function LineTaskExtractScreen(props: BuilderScreenProps) {
         defaultValues: {
             appId: DEFAULT_LINE_TASK_APP_ID,
             messageText: '',
+            useCustomCurrentTime: false,
             referenceTime: formatDateTimeLocalValue(new Date()),
             timeZone: defaultLineTaskTimeZone(),
         },
     });
+    const useCustomCurrentTime = useWatch({ control, name: 'useCustomCurrentTime' }) ?? false;
 
     const submitDisabled = lineTaskConsultMutation.isPending || props.isInvalidBuilder;
 
     const onSubmit = async (data: LineTaskFormValues) => {
         const submissionId = createMessageId();
-        const normalizedReferenceTime = normalizeLineTaskReferenceTime(data.referenceTime);
+        const normalizedReferenceTime = data.useCustomCurrentTime
+            ? normalizeLineTaskReferenceTime(data.referenceTime?.trim() || '')
+            : '';
+        const normalizedTimeZone = data.useCustomCurrentTime ? data.timeZone?.trim() || '' : '';
 
         setSubmissions((previous) => [
             {
                 id: submissionId,
                 appId: data.appId?.trim() || '',
                 messageText: data.messageText.trim(),
-                referenceTime: normalizedReferenceTime,
-                timeZone: data.timeZone.trim(),
+                referenceTime: normalizedReferenceTime || undefined,
+                timeZone: normalizedTimeZone || undefined,
+                useCustomCurrentTime: data.useCustomCurrentTime,
                 deliveryStatus: 'pending',
             },
             ...previous,
@@ -547,15 +574,16 @@ function LineTaskExtractScreen(props: BuilderScreenProps) {
                 appId: data.appId?.trim() || '',
                 builderId: props.builderId,
                 messageText: data.messageText.trim(),
-                referenceTime: normalizedReferenceTime,
-                timeZone: data.timeZone.trim(),
+                referenceTime: normalizedReferenceTime || undefined,
+                timeZone: normalizedTimeZone || undefined,
             });
 
             reset({
                 appId: data.appId?.trim() || '',
                 messageText: '',
-                referenceTime: formatDateTimeLocalValue(new Date()),
-                timeZone: data.timeZone.trim(),
+                useCustomCurrentTime: data.useCustomCurrentTime,
+                referenceTime: data.useCustomCurrentTime ? (data.referenceTime?.trim() || '') : formatDateTimeLocalValue(new Date()),
+                timeZone: data.useCustomCurrentTime ? normalizedTimeZone : defaultLineTaskTimeZone(),
             });
 
             setSubmissions((previous) => previous.map((item) => (
@@ -590,20 +618,31 @@ function LineTaskExtractScreen(props: BuilderScreenProps) {
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="line-task-time-zone">Time Zone</Label>
-                        <Input
-                            id="line-task-time-zone"
-                            placeholder="Asia/Taipei"
-                            disabled={lineTaskConsultMutation.isPending}
-                            {...register('timeZone')}
-                        />
-                        {errors.timeZone ? (
-                            <p className="text-xs text-destructive">{errors.timeZone.message}</p>
-                        ) : null}
+                        <Label htmlFor="line-task-custom-current-time" className="text-sm font-medium">
+                            測試模式
+                        </Label>
+                        <label
+                            htmlFor="line-task-custom-current-time"
+                            className="flex min-h-10 items-start gap-3 rounded-lg border bg-muted/20 px-3 py-2 text-sm"
+                        >
+                            <input
+                                id="line-task-custom-current-time"
+                                type="checkbox"
+                                className="mt-0.5 h-4 w-4 rounded border-input"
+                                disabled={lineTaskConsultMutation.isPending}
+                                {...register('useCustomCurrentTime')}
+                            />
+                            <span className="space-y-1">
+                                <span className="block font-medium">自定義現在時間</span>
+                                <span className="block text-xs text-muted-foreground">
+                                    未勾選時由 backend 自動補系統時間與系統時區。
+                                </span>
+                            </span>
+                        </label>
                     </div>
                 </div>
 
-                <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                <div className={`mt-4 grid gap-4 ${useCustomCurrentTime ? 'md:grid-cols-[minmax(0,1fr)_220px]' : ''}`}>
                     <div className="space-y-2">
                         <Label htmlFor="line-task-message-text">Message Text</Label>
                         <Textarea
@@ -629,27 +668,51 @@ function LineTaskExtractScreen(props: BuilderScreenProps) {
                         )}
                     </div>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="line-task-reference-time">Reference Time</Label>
-                        <Input
-                            id="line-task-reference-time"
-                            type="datetime-local"
-                            step={60}
-                            disabled={lineTaskConsultMutation.isPending}
-                            {...register('referenceTime')}
-                        />
-                        {errors.referenceTime ? (
-                            <p className="text-xs text-destructive">{errors.referenceTime.message}</p>
-                        ) : (
-                            <p className="text-xs text-muted-foreground">
-                                送出時會轉成 `YYYY-MM-DD HH:mm:ss`。
-                            </p>
-                        )}
-                        <Button type="submit" className="mt-4 w-full" disabled={submitDisabled}>
-                            <Send className="h-4 w-4" />
-                            送出 line task consult
-                        </Button>
-                    </div>
+                    {useCustomCurrentTime ? (
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="line-task-time-zone">Time Zone</Label>
+                                <Input
+                                    id="line-task-time-zone"
+                                    placeholder="Asia/Taipei"
+                                    disabled={lineTaskConsultMutation.isPending}
+                                    {...register('timeZone')}
+                                />
+                                {errors.timeZone ? (
+                                    <p className="text-xs text-destructive">{errors.timeZone.message}</p>
+                                ) : (
+                                    <p className="text-xs text-muted-foreground">
+                                        只在測試模式下送出覆蓋值。
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="line-task-reference-time">Reference Time</Label>
+                                <Input
+                                    id="line-task-reference-time"
+                                    type="datetime-local"
+                                    step={60}
+                                    disabled={lineTaskConsultMutation.isPending}
+                                    {...register('referenceTime')}
+                                />
+                                {errors.referenceTime ? (
+                                    <p className="text-xs text-destructive">{errors.referenceTime.message}</p>
+                                ) : (
+                                    <p className="text-xs text-muted-foreground">
+                                        送出時會轉成 `YYYY-MM-DD HH:mm:ss`。
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                    ) : null}
+                </div>
+
+                <div className="mt-4 flex justify-end">
+                    <Button type="submit" className={useCustomCurrentTime ? 'w-full md:w-[220px]' : ''} disabled={submitDisabled}>
+                        <Send className="h-4 w-4" />
+                        送出 line task consult
+                    </Button>
                 </div>
             </div>
         </form>
@@ -657,7 +720,7 @@ function LineTaskExtractScreen(props: BuilderScreenProps) {
 
     const mainContent = submissions.length === 0 ? (
         <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-            輸入口語訊息、reference time 與 time zone 後送出，開始測試 line task extraction。
+            輸入口語訊息後送出，開始測試 line task extraction。需要覆蓋系統時間時再勾選測試模式。
         </div>
     ) : (
         <div className="flex flex-col gap-4">
@@ -667,8 +730,14 @@ function LineTaskExtractScreen(props: BuilderScreenProps) {
                         <div className="space-y-1">
                             <p className="text-sm font-semibold">{submission.messageText}</p>
                             <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                <span>referenceTime: {submission.referenceTime}</span>
-                                <span>timeZone: {submission.timeZone}</span>
+                                {submission.useCustomCurrentTime ? (
+                                    <>
+                                        <span>referenceTime: {submission.referenceTime}</span>
+                                        <span>timeZone: {submission.timeZone}</span>
+                                    </>
+                                ) : (
+                                    <span>executionTime: backend system clock / system timezone</span>
+                                )}
                                 {submission.appId ? <span>appId: {submission.appId}</span> : <span>appId: (empty)</span>}
                             </div>
                         </div>

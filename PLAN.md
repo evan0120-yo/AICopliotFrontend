@@ -157,8 +157,8 @@ LineTaskExtractScreen
       │
       ├── appId(optional)
       ├── messageText
-      ├── referenceTime
-      ├── timeZone
+      ├── useCustomCurrentTime(optional)
+      ├── referenceTime / timeZone 只在 debug override 時顯示
       └── submit
              -> POST /api/line-task-consult
 ```
@@ -167,7 +167,8 @@ LineTaskExtractScreen
 - 這條畫面是 Internal 後台測試 LineTask extraction 的專用入口。
 - submit 不得走 `/api/consult`。
 - response 應以 structured result 顯示，不應假裝成一般聊天 assistant bubble。
-- `referenceTime` 與 `timeZone` 可以預設帶當前值，但畫面上應可編輯，方便測 prompt 行為。
+- 預設應讓 backend 自動補系統時間 / 系統時區。
+- 只有勾選測試模式時，才展開 `referenceTime` / `timeZone` 覆蓋欄位，方便測 prompt 行為。
 - `appId` 可為空，保留給 local/dev tester。
 
 ### Scenario group: builder list for testing console
@@ -368,8 +369,10 @@ src/components
 
 - optional appId
 - messageText textarea
-- referenceTime datetime-local
-- timeZone input
+- backend 預設自動補系統時間 / 系統時區
+- 自定義現在時間 checkbox
+- referenceTime datetime-local（僅 debug override 顯示）
+- timeZone input（僅 debug override 顯示）
 - `POST /api/line-task-consult`
 - response 以 structured cards 顯示
 

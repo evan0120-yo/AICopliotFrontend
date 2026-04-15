@@ -68,8 +68,8 @@ export interface LineTaskConsultRequestData {
     appId?: string;
     builderId: number;
     messageText: string;
-    referenceTime: string;
-    timeZone: string;
+    referenceTime?: string;
+    timeZone?: string;
 }
 
 export interface LineTaskConsultResponse {
