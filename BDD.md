@@ -109,7 +109,8 @@ Sidebar
     ├─ resolve current builder
     ├─ resolve UI variant
     ├─ generic_consult    -> GenericConsultScreen
-    └─ astrology_profile  -> AstrologyProfileScreen
+    ├─ astrology_profile  -> AstrologyProfileScreen
+    └─ line_task_extract  -> LineTaskExtractScreen
 ```
 
 - Given 使用者進入 `/:builderId`
@@ -120,6 +121,10 @@ Sidebar
   When page resolve variant
   Then 應進入 `astrology_profile`
 
+- Given 當前 builder `builderCode=line-memo-crud`
+  When page resolve variant
+  Then 應進入 `line_task_extract`
+
 - Given 當前 builder 被判定為 generic consult
   When page render
   Then 應顯示現有 chat form
@@ -128,6 +133,68 @@ Sidebar
   When page render
   Then 不應顯示 generic file upload / output format form
   And 應顯示 astrology profile form
+
+- Given 當前 builder 被判定為 line task extraction
+  When page render
+  Then 不應顯示 generic file upload / output format form
+  And 不應顯示 astrology profile form
+  And 應顯示 line task extraction form
+
+## Scenario Group: Line Task Extract Screen
+
+```text
+LineTaskExtractScreen
+    │
+    ├─ appId?         optional
+    ├─ messageText
+    ├─ referenceTime
+    ├─ timeZone
+    └─ POST /api/line-task-consult
+```
+
+- Given line task extraction screen 已載入
+  When render
+  Then 畫面應顯示 `messageText`、`referenceTime`、`timeZone`
+  And `appId` 應為可選欄位
+
+- Given line task extraction screen 已載入
+  When 初始 render
+  Then `referenceTime` 應帶入目前時間
+  And `timeZone` 應帶入瀏覽器時區或 fallback 預設值
+
+- Given 使用者位於 line task extraction 的 multiline message input
+  When 按下 `Ctrl+Enter` 或 `Cmd+Enter`
+  Then form 應直接送出
+
+- Given `messageText` 為空
+  When submit
+  Then 畫面應顯示 validation error
+  And 不應送出 request
+
+- Given line task extraction submit
+  When mutation 送出
+  Then frontend 應呼叫 `POST /api/line-task-consult`
+  And request body 應包含 `builderId`、`messageText`、`referenceTime`、`timeZone`
+
+- Given `referenceTime` 使用 `datetime-local` 輸入
+  When submit
+  Then frontend 送出的 `referenceTime` 應轉成 `YYYY-MM-DD HH:mm:ss`
+
+- Given line task extraction submit 成功
+  When backend 回傳 structured result
+  Then 畫面應顯示：
+  And `operation`
+  And `summary`
+  And `startAt`
+  And `endAt`
+  And `location`
+  And `missingFields`
+  And 不應用 markdown assistant bubble render
+
+- Given line task extraction submit 失敗
+  When mutation 回傳 error
+  Then 該次 submission card 應標成 error
+  And 應顯示 toast error
 
 ## Scenario Group: Astrology Profile Screen
 

@@ -14,10 +14,11 @@
 
 ## Scope
 
-frontend 目前只正式支援三條線：
+frontend 目前只正式支援四條線：
 
 - 一般 consult chat
 - astrology profile consult
+- line task extraction consult
 - admin graph / template 管理
 
 frontend 目前**不在 scope** 內的能力：
@@ -190,6 +191,7 @@ BuilderEntryPage
   -> resolve current builder variant
   -> GenericConsultScreen
   -> AstrologyProfileScreen
+  -> LineTaskExtractScreen
 ```
 
 ### Variant Rules
@@ -202,6 +204,10 @@ generic_consult
 astrology_profile
   -> useProfileConsult()
   -> POST /api/profile-consult
+
+line_task_extract
+  -> useLineTaskConsult()
+  -> POST /api/line-task-consult
 ```
 
 目前使用 builder identity 做 variant resolve；
@@ -213,9 +219,65 @@ builderId = 3
 
 builderCode = linkchat-astrology
   -> astrology_profile
+
+builderCode = line-memo-crud
+  -> line_task_extract
 ```
 
 若 backend 日後補 `interactionMode` / `uiVariant`，frontend 應改由該欄位驅動。
+
+## Current Extension: Line Task Extract Screen
+
+### Responsibility
+
+- 承接 `line-memo-crud` 這類 extraction builder 的 structured submit
+- 直接對接 backend `POST /api/line-task-consult`
+- 以 structured result 呈現回傳資料，不重用 generic assistant bubble
+
+### Fixed Fields
+
+```text
+appId?        optional
+messageText
+referenceTime
+timeZone
+```
+
+### Submit Contract
+
+```json
+{
+  "appId": "",
+  "builderId": 4,
+  "messageText": "小傑 明天 下午三點找我吃飯",
+  "referenceTime": "2026-04-14 10:00:00",
+  "timeZone": "Asia/Taipei"
+}
+```
+
+規則：
+- `appId` 可留空，供 local/dev tester 使用
+- `referenceTime` UI 以 `datetime-local` 輸入，但送出前應轉成 `YYYY-MM-DD HH:mm:ss`
+- `timeZone` 預設帶入瀏覽器目前時區，但畫面上可編輯
+- multiline message input 以 `Ctrl+Enter` / `Cmd+Enter` 送出
+
+### Response Contract
+
+```json
+{
+  "operation": "create",
+  "summary": "找小傑吃飯",
+  "startAt": "2026-04-15 15:00:00",
+  "endAt": "2026-04-15 15:30:00",
+  "location": "",
+  "missingFields": []
+}
+```
+
+規則：
+- response 應以欄位卡片方式顯示
+- 不應假裝成 generic markdown assistant bubble
+- `missingFields` 為空時應顯示 `(none)`，不應顯示 raw `[]`
 
 ## Current Extension: Astrology Profile Screen
 
@@ -724,7 +786,7 @@ live
 
 ```text
 frontend consult
-  -> generic chat 與 astrology profile 已共存
+  -> generic chat / astrology profile / line task extract 已共存
   -> variant resolve 仍依 builder identity，不是 backend metadata
 
 frontend admin

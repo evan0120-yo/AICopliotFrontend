@@ -81,20 +81,24 @@ resolveBuilderScreenVariant()
     ├── generic_consult
     │      -> GenericConsultScreen
     │
-    └── astrology_profile
-           -> AstrologyProfileScreen
+    ├── astrology_profile
+    │      -> AstrologyProfileScreen
+    │
+    └── line_task_extract
+           -> LineTaskExtractScreen
 ```
 
 目前的分流基準很直接：
 
 - `builderId = 3`
 - 或 `builderCode = linkchat-astrology`
+- 或 `builderCode = line-memo-crud`
 
-只要符合其中一個，就進 astrology profile 畫面。
+只要符合其中一個，就進對應專用畫面。
 
 > 注意:
 > 這是 current runtime truth，不是 backend metadata 驅動。
-> 也就是說，前端目前**自己知道**誰是 astrology builder，還沒有等 backend 給正式 `uiVariant`。
+> 也就是說，前端目前**自己知道**誰是 astrology builder、誰是 line task builder，還沒有等 backend 給正式 `uiVariant`。
 
 ---
 
@@ -457,10 +461,13 @@ Sidebar
 ```ts
 const ASTROLOGY_BUILDER_ID = 3;
 const ASTROLOGY_BUILDER_CODE = 'linkchat-astrology';
+const LINE_TASK_BUILDER_CODE = 'line-memo-crud';
 ```
 
 ```text
 resolveBuilderScreenVariant(builderId, currentBuilder)
+  ├── currentBuilder?.builderCode === 'line-memo-crud'
+  │      -> line_task_extract
   ├── builderId === 3
   │      -> astrology_profile
   ├── currentBuilder?.builderCode === 'linkchat-astrology'
@@ -476,7 +483,51 @@ resolveBuilderScreenVariant(builderId, currentBuilder)
 
 ---
 
-## C. Generic Consult Screen
+## C. Line Task Extract Screen
+
+### 主要 call chain
+
+```text
+LineTaskExtractScreen
+  -> react-hook-form + zodResolver(lineTaskFormSchema)
+  -> useLineTaskConsult()
+  -> api.post('/line-task-consult', JSON)
+```
+
+### `useLineTaskConsult`
+
+- `src/hooks/useLineTaskConsult.ts`
+
+會送出的欄位：
+
+- `appId?`
+- `builderId`
+- `messageText`
+- `referenceTime`
+- `timeZone`
+
+### 畫面規則
+
+- `messageText` 用 multiline textarea
+- `referenceTime` 用 `datetime-local` 輸入
+- submit 前會轉成 `YYYY-MM-DD HH:mm:ss`
+- `timeZone` 預設帶瀏覽器時區
+- 結果直接顯示 structured cards：
+  - `operation`
+  - `summary`
+  - `startAt`
+  - `endAt`
+  - `location`
+  - `missingFields`
+
+### 鍵盤規則
+
+- `Ctrl+Enter` / `Cmd+Enter` submit
+- 單純 `Enter` newline
+
+---
+
+## D. Generic Consult Screen
 
 ### 主要 call chain
 

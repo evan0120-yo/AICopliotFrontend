@@ -36,6 +36,8 @@
 - `/[builderId]` 不再假設所有 builder 都共用同一種 chat 表單
 - 前端應允許依 builder 種類切換不同 interaction mode / screen variant
 - `LinkChat` 這類 astrology profile builder 應採專用 profile form，而不是 generic text/file consult form
+- `line-memo-crud` 這類 extraction builder 應採專用 line task form，而不是 generic consult form
+- Internal frontend 本身應作為 backend 各條 AI 路線的測試入口
 
 ## Delivery Flow
 
@@ -137,9 +139,51 @@ POST /api/consult
       ├── generic_consult
       │      -> 現有 chat form
       │
-      └── astrology_profile
-             -> 星座 profile form
+      ├── astrology_profile
+      │      -> 星座 profile form
+      │
+      └── line_task_extract
+             -> line task extraction form
 ```
+
+variant 規則：
+- `line_task_extract` 應優先以 `builderCode = line-memo-crud` 判斷。
+- 不應以固定 `builderId=4` 當作長期產品規則。
+
+### Scenario group: line task extraction form
+
+```text
+LineTaskExtractScreen
+      │
+      ├── appId(optional)
+      ├── messageText
+      ├── referenceTime
+      ├── timeZone
+      └── submit
+             -> POST /api/line-task-consult
+```
+
+前端規則：
+- 這條畫面是 Internal 後台測試 LineTask extraction 的專用入口。
+- submit 不得走 `/api/consult`。
+- response 應以 structured result 顯示，不應假裝成一般聊天 assistant bubble。
+- `referenceTime` 與 `timeZone` 可以預設帶當前值，但畫面上應可編輯，方便測 prompt 行為。
+- `appId` 可為空，保留給 local/dev tester。
+
+### Scenario group: builder list for testing console
+
+```text
+Sidebar builder list
+      │
+      ├── 顯示 generic builders
+      ├── 顯示 astrology builder
+      └── 顯示 line task builder
+             -> line-memo-crud
+```
+
+前端規則：
+- 若 backend runtime builder list 之後加入 `line-memo-crud`，sidebar 應允許它被選取。
+- 但選取後必須進入 `line_task_extract` variant，不可退回 generic consult。
 
 ### Scenario group: astrology profile form
 
@@ -260,7 +304,9 @@ GET template library
 - consult chat 頁
 - file upload
 - astrology profile screen
+- line task extraction screen
 - `/profile-consult` frontend submit
+- `/line-task-consult` frontend submit
 - builder graph editor
 - template library
 - builder-driven metadata round-trip
@@ -291,6 +337,7 @@ src/hooks
   useBuilders
   useConsult
   useProfileConsult
+  useLineTaskConsult
   useBuilderGraph
   useTemplates
 
@@ -314,6 +361,17 @@ src/components
 - optional files
 - optional output format
 - `POST /api/consult`
+
+### Line task extract
+
+目前行為：
+
+- optional appId
+- messageText textarea
+- referenceTime datetime-local
+- timeZone input
+- `POST /api/line-task-consult`
+- response 以 structured cards 顯示
 
 ### Astrology profile
 
@@ -448,8 +506,8 @@ template
 
 ```text
 frontend consult
-  -> generic consult 與 astrology profile 已共存
-  -> astrology variant 仍以 builder identity 分流，尚未有 backend uiVariant 欄位
+  -> generic consult / astrology profile / line task extract 已共存
+  -> variant 仍以 builder identity 分流，尚未有 backend uiVariant 欄位
 
 frontend admin
   -> metadata preserved

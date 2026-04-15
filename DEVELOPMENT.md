@@ -118,12 +118,37 @@ INTERNAL_AI_COPILOT_BACKEND_ORIGIN
 
 ## Current Architecture Rules
 
-## Consult Chat
+## Consult Screens
 
-- `/:builderId` 只透過 `useConsult()` 呼叫 `/consult`
-- 目前沒有 `useProfileConsult()`
-- 目前 chat page 不會送 `subjectProfile`
-- `MarkdownBlock` 負責 assistant content render 與 file download
+```text
+current runtime
+/:builderId
+├─ generic_consult
+│  └─ useConsult() -> /api/consult
+├─ astrology_profile
+│  └─ useProfileConsult() -> /api/profile-consult
+└─ line_task_extract
+   └─ useLineTaskConsult() -> /api/line-task-consult
+```
+
+規則：
+- Internal frontend 應視為 backend 測試入口，而不是只有 generic chat。
+- `line-memo-crud` 不可套用 generic chat form。
+- `line_task_extract` 應以 `builderCode` 作為主要 variant 判斷鍵，不應長期依賴固定 `builderId`。
+- `line_task_extract` request 最少需帶：
+  - `builderId`
+  - `messageText`
+  - `referenceTime`
+  - `timeZone`
+- `line_task_extract` response 應對齊：
+  - `operation`
+  - `summary`
+  - `startAt`
+  - `endAt`
+  - `location`
+  - `missingFields`
+
+- `MarkdownBlock` 仍負責 generic/profile assistant content render 與 file download
 
 ## Builder Graph
 
@@ -168,6 +193,8 @@ backend contract
 
 - `src/types/api.ts`
 - `useConsult.ts`
+- `useProfileConsult.ts`
+- `useLineTaskConsult.ts`
 - `src/app/[builderId]/page.tsx`
 - `MarkdownBlock`
 

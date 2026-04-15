@@ -7,6 +7,7 @@ import * as z from 'zod';
 import { Loader2, Menu, Minus, Paperclip, Plus, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { useConsult } from '@/hooks/useConsult';
+import { useLineTaskConsult } from '@/hooks/useLineTaskConsult';
 import { useProfileConsult } from '@/hooks/useProfileConsult';
 import { useGetBuilders } from '@/hooks/useBuilders';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ import { MarkdownBlock } from '@/components/features/markdown-block';
 import {
     BuilderSummary,
     ConsultFilePayload,
+    LineTaskConsultResponse,
     ProfileConsultRequestData,
     WeightedZodiacEntry,
     ZodiacKey,
@@ -32,8 +34,10 @@ const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp', 
 const FILE_ACCEPT_VALUE = ALLOWED_EXTENSIONS.map((extension) => `.${extension}`).join(',');
 const ASTROLOGY_BUILDER_ID = 3;
 const ASTROLOGY_BUILDER_CODE = 'linkchat-astrology';
+const LINE_TASK_BUILDER_CODE = 'line-memo-crud';
 const UNKNOWN_ZODIAC_VALUE = 'unknown';
 const DEFAULT_ASTROLOGY_TEXT = '請分析這個人的核心性格與外在社交表現。';
+const DEFAULT_LINE_TASK_APP_ID = '';
 
 const formSchema = z.object({
     text: z.string(),
@@ -81,7 +85,7 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-type BuilderScreenVariant = 'generic_consult' | 'astrology_profile';
+type BuilderScreenVariant = 'generic_consult' | 'astrology_profile' | 'line_task_extract';
 type AstrologySlotKey = 'sun_sign' | 'moon_sign' | 'rising_sign';
 type AstrologySingleValue = ZodiacKey | typeof UNKNOWN_ZODIAC_VALUE;
 type AstrologyWeightedEntryState = {
@@ -118,6 +122,16 @@ type BuilderScreenProps = {
     isSidebarOpen: boolean;
     setIsSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
 };
+type LineTaskSubmission = {
+    id: string;
+    appId: string;
+    messageText: string;
+    referenceTime: string;
+    timeZone: string;
+    response?: LineTaskConsultResponse;
+    errorMessage?: string;
+    deliveryStatus: 'pending' | 'success' | 'error';
+};
 type ConversationLayoutProps = BuilderScreenProps & {
     chatHistory: ChatMessage[];
     isPending: boolean;
@@ -127,6 +141,7 @@ type ConversationLayoutProps = BuilderScreenProps & {
     topPanel?: React.ReactNode;
     headerAction?: React.ReactNode;
     showHeader?: boolean;
+    mainContent?: React.ReactNode;
 };
 
 const ASTROLOGY_SLOT_LABELS: Record<AstrologySlotKey, string> = {
@@ -172,10 +187,40 @@ function buildAssistantMessageContent(response: string, statusAns: string) {
 }
 
 function resolveBuilderScreenVariant(builderId: number, currentBuilder?: BuilderSummary): BuilderScreenVariant {
+    if (currentBuilder?.builderCode === LINE_TASK_BUILDER_CODE) {
+        return 'line_task_extract';
+    }
     if (builderId === ASTROLOGY_BUILDER_ID || currentBuilder?.builderCode === ASTROLOGY_BUILDER_CODE) {
         return 'astrology_profile';
     }
     return 'generic_consult';
+}
+
+function padDatePart(value: number) {
+    return value.toString().padStart(2, '0');
+}
+
+function formatDateTimeLocalValue(date: Date) {
+    return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}T${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`;
+}
+
+function normalizeLineTaskReferenceTime(value: string) {
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return '';
+    }
+
+    const candidate = trimmed.includes('T') ? trimmed : trimmed.replace(' ', 'T');
+    const date = new Date(candidate);
+    if (Number.isNaN(date.getTime())) {
+        return trimmed;
+    }
+
+    return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())} ${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}:00`;
+}
+
+function defaultLineTaskTimeZone() {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Taipei';
 }
 
 function getZodiacLabel(key: ZodiacKey) {
@@ -323,6 +368,10 @@ function BuilderEntry({
         return <AstrologyProfileScreen {...screenProps} />;
     }
 
+    if (variant === 'line_task_extract') {
+        return <LineTaskExtractScreen {...screenProps} />;
+    }
+
     return <GenericConsultScreen {...screenProps} />;
 }
 
@@ -342,6 +391,7 @@ function ConversationLayout({
     topPanel,
     headerAction,
     showHeader = true,
+    mainContent,
 }: ConversationLayoutProps) {
     return (
         <div className="relative flex h-full min-h-0 flex-col bg-background">
@@ -395,7 +445,7 @@ function ConversationLayout({
                         </div>
                     ) : null}
 
-                    {chatHistory.length === 0 ? (
+                    {mainContent ? mainContent : chatHistory.length === 0 ? (
                         <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
                             {emptyStateText}
                         </div>
@@ -444,6 +494,275 @@ function ConversationLayout({
                 {footer}
             </div>
         </div>
+    );
+}
+
+const lineTaskFormSchema = z.object({
+    appId: z.string().optional(),
+    messageText: z.string().trim().min(1, '請輸入口語訊息。'),
+    referenceTime: z.string().trim().min(1, '請提供 referenceTime。'),
+    timeZone: z.string().trim().min(1, '請提供 timeZone。'),
+});
+
+type LineTaskFormValues = z.infer<typeof lineTaskFormSchema>;
+
+function LineTaskExtractScreen(props: BuilderScreenProps) {
+    const [submissions, setSubmissions] = useState<LineTaskSubmission[]>([]);
+    const lineTaskConsultMutation = useLineTaskConsult();
+    const {
+        register,
+        handleSubmit,
+        reset,
+        formState: { errors },
+    } = useForm<LineTaskFormValues>({
+        resolver: zodResolver(lineTaskFormSchema),
+        defaultValues: {
+            appId: DEFAULT_LINE_TASK_APP_ID,
+            messageText: '',
+            referenceTime: formatDateTimeLocalValue(new Date()),
+            timeZone: defaultLineTaskTimeZone(),
+        },
+    });
+
+    const submitDisabled = lineTaskConsultMutation.isPending || props.isInvalidBuilder;
+
+    const onSubmit = async (data: LineTaskFormValues) => {
+        const submissionId = createMessageId();
+        const normalizedReferenceTime = normalizeLineTaskReferenceTime(data.referenceTime);
+
+        setSubmissions((previous) => [
+            {
+                id: submissionId,
+                appId: data.appId?.trim() || '',
+                messageText: data.messageText.trim(),
+                referenceTime: normalizedReferenceTime,
+                timeZone: data.timeZone.trim(),
+                deliveryStatus: 'pending',
+            },
+            ...previous,
+        ]);
+
+        try {
+            const response = await lineTaskConsultMutation.mutateAsync({
+                appId: data.appId?.trim() || '',
+                builderId: props.builderId,
+                messageText: data.messageText.trim(),
+                referenceTime: normalizedReferenceTime,
+                timeZone: data.timeZone.trim(),
+            });
+
+            reset({
+                appId: data.appId?.trim() || '',
+                messageText: '',
+                referenceTime: formatDateTimeLocalValue(new Date()),
+                timeZone: data.timeZone.trim(),
+            });
+
+            setSubmissions((previous) => previous.map((item) => (
+                item.id === submissionId
+                    ? { ...item, response, deliveryStatus: 'success' as const }
+                    : item
+            )));
+            toast.success('Line task extraction 已完成');
+        } catch (error) {
+            const message = error instanceof Error ? error.message : '請求失敗';
+            setSubmissions((previous) => previous.map((item) => (
+                item.id === submissionId
+                    ? { ...item, errorMessage: message, deliveryStatus: 'error' as const }
+                    : item
+            )));
+            toast.error(message);
+        }
+    };
+
+    const topPanel = (
+        <form onSubmit={handleSubmit(onSubmit)} className="mx-auto w-full max-w-5xl space-y-4">
+            <div className="rounded-2xl border bg-background/95 p-4 shadow-sm">
+                <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                        <Label htmlFor="line-task-app-id">App ID（選填）</Label>
+                        <Input
+                            id="line-task-app-id"
+                            placeholder="留空代表 local/dev 路線"
+                            disabled={lineTaskConsultMutation.isPending}
+                            {...register('appId')}
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="line-task-time-zone">Time Zone</Label>
+                        <Input
+                            id="line-task-time-zone"
+                            placeholder="Asia/Taipei"
+                            disabled={lineTaskConsultMutation.isPending}
+                            {...register('timeZone')}
+                        />
+                        {errors.timeZone ? (
+                            <p className="text-xs text-destructive">{errors.timeZone.message}</p>
+                        ) : null}
+                    </div>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                    <div className="space-y-2">
+                        <Label htmlFor="line-task-message-text">Message Text</Label>
+                        <Textarea
+                            id="line-task-message-text"
+                            placeholder="例如：小傑 明天 下午三點找我吃飯"
+                            className="min-h-[112px] resize-none"
+                            disabled={lineTaskConsultMutation.isPending}
+                            {...register('messageText')}
+                            onKeyDown={(event) => {
+                                if (event.nativeEvent.isComposing) return;
+                                if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                                    event.preventDefault();
+                                    handleSubmit(onSubmit)();
+                                }
+                            }}
+                        />
+                        {errors.messageText ? (
+                            <p className="text-xs text-destructive">{errors.messageText.message}</p>
+                        ) : (
+                            <p className="text-xs text-muted-foreground">
+                                這條畫面會直接送到 /api/line-task-consult，不走 generic consult。
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="line-task-reference-time">Reference Time</Label>
+                        <Input
+                            id="line-task-reference-time"
+                            type="datetime-local"
+                            step={60}
+                            disabled={lineTaskConsultMutation.isPending}
+                            {...register('referenceTime')}
+                        />
+                        {errors.referenceTime ? (
+                            <p className="text-xs text-destructive">{errors.referenceTime.message}</p>
+                        ) : (
+                            <p className="text-xs text-muted-foreground">
+                                送出時會轉成 `YYYY-MM-DD HH:mm:ss`。
+                            </p>
+                        )}
+                        <Button type="submit" className="mt-4 w-full" disabled={submitDisabled}>
+                            <Send className="h-4 w-4" />
+                            送出 line task consult
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    );
+
+    const mainContent = submissions.length === 0 ? (
+        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+            輸入口語訊息、reference time 與 time zone 後送出，開始測試 line task extraction。
+        </div>
+    ) : (
+        <div className="flex flex-col gap-4">
+            {submissions.map((submission) => (
+                <div key={submission.id} className="rounded-2xl border bg-background/95 p-4 shadow-sm">
+                    <div className="flex flex-col gap-3 border-b pb-3 md:flex-row md:items-start md:justify-between">
+                        <div className="space-y-1">
+                            <p className="text-sm font-semibold">{submission.messageText}</p>
+                            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                <span>referenceTime: {submission.referenceTime}</span>
+                                <span>timeZone: {submission.timeZone}</span>
+                                {submission.appId ? <span>appId: {submission.appId}</span> : <span>appId: (empty)</span>}
+                            </div>
+                        </div>
+                        <span
+                            className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
+                                submission.deliveryStatus === 'success'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : submission.deliveryStatus === 'error'
+                                        ? 'bg-destructive/10 text-destructive'
+                                        : 'bg-secondary text-secondary-foreground'
+                            }`}
+                        >
+                            {submission.deliveryStatus === 'success'
+                                ? 'success'
+                                : submission.deliveryStatus === 'error'
+                                    ? 'error'
+                                    : 'pending'}
+                        </span>
+                    </div>
+
+                    {submission.deliveryStatus === 'pending' ? (
+                        <div className="mt-4 flex items-center gap-3 text-sm text-muted-foreground">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            AI 正在抽取結構化事件資料...
+                        </div>
+                    ) : null}
+
+                    {submission.deliveryStatus === 'error' ? (
+                        <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                            {submission.errorMessage || 'Line task consult 失敗'}
+                        </div>
+                    ) : null}
+
+                    {submission.response ? (
+                        <div className="mt-4 grid gap-3 md:grid-cols-2">
+                            <div className="rounded-xl border bg-muted/20 p-3">
+                                <p className="text-xs font-semibold uppercase text-muted-foreground">Operation</p>
+                                <p className="mt-1 text-sm font-medium">{submission.response.operation}</p>
+                            </div>
+                            <div className="rounded-xl border bg-muted/20 p-3">
+                                <p className="text-xs font-semibold uppercase text-muted-foreground">Summary</p>
+                                <p className="mt-1 text-sm font-medium">{submission.response.summary || '(empty)'}</p>
+                            </div>
+                            <div className="rounded-xl border bg-muted/20 p-3">
+                                <p className="text-xs font-semibold uppercase text-muted-foreground">Start At</p>
+                                <p className="mt-1 text-sm font-medium">{submission.response.startAt || '(empty)'}</p>
+                            </div>
+                            <div className="rounded-xl border bg-muted/20 p-3">
+                                <p className="text-xs font-semibold uppercase text-muted-foreground">End At</p>
+                                <p className="mt-1 text-sm font-medium">{submission.response.endAt || '(empty)'}</p>
+                            </div>
+                            <div className="rounded-xl border bg-muted/20 p-3 md:col-span-2">
+                                <p className="text-xs font-semibold uppercase text-muted-foreground">Location</p>
+                                <p className="mt-1 text-sm font-medium">{submission.response.location || '(empty)'}</p>
+                            </div>
+                            <div className="rounded-xl border bg-muted/20 p-3 md:col-span-2">
+                                <p className="text-xs font-semibold uppercase text-muted-foreground">Missing Fields</p>
+                                {submission.response.missingFields.length > 0 ? (
+                                    <div className="mt-2 flex flex-wrap gap-2">
+                                        {submission.response.missingFields.map((field) => (
+                                            <span key={field} className="rounded-full bg-secondary px-2 py-1 text-xs text-secondary-foreground">
+                                                {field}
+                                            </span>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p className="mt-1 text-sm font-medium">(none)</p>
+                                )}
+                            </div>
+                        </div>
+                    ) : null}
+                </div>
+            ))}
+        </div>
+    );
+
+    const footer = (
+        <div className="mx-auto max-w-5xl text-xs text-muted-foreground">
+            structured result 會直接對齊 backend `operation / summary / startAt / endAt / location / missingFields`。
+            快捷鍵：Message Text 使用 `Ctrl/Cmd + Enter` 送出。
+        </div>
+    );
+
+    return (
+        <ConversationLayout
+            {...props}
+            chatHistory={[]}
+            isPending={false}
+            pendingLabel=""
+            emptyStateText=""
+            topPanel={topPanel}
+            mainContent={mainContent}
+            footer={footer}
+        />
     );
 }
 

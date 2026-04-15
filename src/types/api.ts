@@ -63,3 +63,20 @@ export interface ProfileConsultRequestData {
     text?: string;
     payload: Record<string, string[] | WeightedZodiacEntry[]>;
 }
+
+export interface LineTaskConsultRequestData {
+    appId?: string;
+    builderId: number;
+    messageText: string;
+    referenceTime: string;
+    timeZone: string;
+}
+
+export interface LineTaskConsultResponse {
+    operation: 'create' | 'update' | 'delete' | 'query';
+    summary: string;
+    startAt: string;
+    endAt: string;
+    location: string;
+    missingFields: string[];
+}
