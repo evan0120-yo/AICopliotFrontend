@@ -369,12 +369,14 @@ src/components
 
 - optional appId
 - messageText textarea
+- supportedTaskTypes 固定送 `["calendar"]`
 - backend 預設自動補系統時間 / 系統時區
 - 自定義現在時間 checkbox
 - referenceTime datetime-local（僅 debug override 顯示）
 - timeZone input（僅 debug override 顯示）
 - `POST /api/line-task-consult`
 - response 以 structured cards 顯示
+- response 應包含並顯示 `taskType`
 
 ### Astrology profile
 

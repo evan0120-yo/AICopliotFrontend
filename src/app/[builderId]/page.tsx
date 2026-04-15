@@ -806,6 +806,10 @@ function LineTaskExtractScreen(props: BuilderScreenProps) {
                     {submission.response ? (
                         <div className="mt-4 grid gap-3 md:grid-cols-2">
                             <div className="rounded-xl border bg-muted/20 p-3">
+                                <p className="text-xs font-semibold uppercase text-muted-foreground">Task Type</p>
+                                <p className="mt-1 text-sm font-medium">{submission.response.taskType || '(empty)'}</p>
+                            </div>
+                            <div className="rounded-xl border bg-muted/20 p-3">
                                 <p className="text-xs font-semibold uppercase text-muted-foreground">Operation</p>
                                 <p className="mt-1 text-sm font-medium">{submission.response.operation}</p>
                             </div>
@@ -850,7 +854,7 @@ function LineTaskExtractScreen(props: BuilderScreenProps) {
 
     const footer = (
         <div className="mx-auto max-w-5xl text-xs text-muted-foreground">
-            structured result 會直接對齊 backend `operation / summary / startAt / endAt / location / missingFields`。
+            structured result 會直接對齊 backend `taskType / operation / summary / startAt / endAt / location / missingFields`。
             快捷鍵：Message Text 使用 `Ctrl/Cmd + Enter` 送出。
         </div>
     );

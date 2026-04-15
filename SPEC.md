@@ -239,6 +239,7 @@ builderCode = line-memo-crud
 ```text
 appId?        optional
 messageText
+supportedTaskTypes = ["calendar"]
 useCustomCurrentTime
 referenceTime?   debug override only
 timeZone?        debug override only
@@ -250,7 +251,8 @@ timeZone?        debug override only
 {
   "appId": "",
   "builderId": 4,
-  "messageText": "小傑 明天 下午三點找我吃飯"
+  "messageText": "小傑 明天 下午三點找我吃飯",
+  "supportedTaskTypes": ["calendar"]
 }
 ```
 
@@ -265,6 +267,7 @@ timeZone?        debug override only
 
 ```json
 {
+  "taskType": "calendar",
   "operation": "create",
   "summary": "找小傑吃飯",
   "startAt": "2026-04-15 15:00:00",
@@ -276,6 +279,7 @@ timeZone?        debug override only
 
 規則：
 - response 應以欄位卡片方式顯示
+- `taskType` 應顯示為 structured field，供 LineBot Server 未來分派 module 對齊
 - 不應假裝成 generic markdown assistant bubble
 - `missingFields` 為空時應顯示 `(none)`，不應顯示 raw `[]`
 

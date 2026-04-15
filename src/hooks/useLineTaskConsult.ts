@@ -9,6 +9,7 @@ export const useLineTaskConsult = () => {
                 appId: data.appId?.trim() || '',
                 builderId: data.builderId,
                 messageText: data.messageText,
+                supportedTaskTypes: ['calendar'],
             };
             if (data.referenceTime?.trim()) {
                 requestBody.referenceTime = data.referenceTime;

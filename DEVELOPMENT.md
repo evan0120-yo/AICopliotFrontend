@@ -138,11 +138,13 @@ current runtime
 - `line_task_extract` request 最少需帶：
   - `builderId`
   - `messageText`
+  - `supportedTaskTypes=["calendar"]`
 - `line_task_extract` 預設應讓 backend 自動補系統時間 / 系統時區。
 - 只有測試模式才送：
   - `referenceTime`
   - `timeZone`
 - `line_task_extract` response 應對齊：
+  - `taskType`
   - `operation`
   - `summary`
   - `startAt`

@@ -182,7 +182,7 @@ LineTaskExtractScreen
 - Given line task extraction submit
   When mutation 送出
   Then frontend 應呼叫 `POST /api/line-task-consult`
-  And request body 應包含 `builderId`、`messageText`
+  And request body 應包含 `builderId`、`messageText`、`supportedTaskTypes=["calendar"]`
 
 - Given line task extraction submit
   And `useCustomCurrentTime` 未勾選
@@ -200,6 +200,7 @@ LineTaskExtractScreen
 - Given line task extraction submit 成功
   When backend 回傳 structured result
   Then 畫面應顯示：
+  And `taskType`
   And `operation`
   And `summary`
   And `startAt`

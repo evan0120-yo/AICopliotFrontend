@@ -70,9 +70,11 @@ export interface LineTaskConsultRequestData {
     messageText: string;
     referenceTime?: string;
     timeZone?: string;
+    supportedTaskTypes?: string[];
 }
 
 export interface LineTaskConsultResponse {
+    taskType: string;
     operation: 'create' | 'update' | 'delete' | 'query';
     summary: string;
     startAt: string;
