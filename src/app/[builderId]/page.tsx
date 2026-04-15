@@ -4,7 +4,7 @@ import { use, useMemo, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Loader2, Menu, Minus, Paperclip, Plus, Send } from 'lucide-react';
+import { ChevronDown, ChevronUp, Loader2, Menu, Minus, Paperclip, Plus, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { useConsult } from '@/hooks/useConsult';
 import { useLineTaskConsult } from '@/hooks/useLineTaskConsult';
@@ -528,6 +528,7 @@ type LineTaskFormValues = z.infer<typeof lineTaskFormSchema>;
 
 function LineTaskExtractScreen(props: BuilderScreenProps) {
     const [submissions, setSubmissions] = useState<LineTaskSubmission[]>([]);
+    const [isFormExpanded, setIsFormExpanded] = useState(true);
     const lineTaskConsultMutation = useLineTaskConsult();
     const {
         control,
@@ -603,7 +604,7 @@ function LineTaskExtractScreen(props: BuilderScreenProps) {
         }
     };
 
-    const topPanel = (
+    const topPanelContent = (
         <form onSubmit={handleSubmit(onSubmit)} className="mx-auto w-full max-w-5xl space-y-4">
             <div className="rounded-2xl border bg-background/95 p-4 shadow-sm">
                 <div className="grid gap-4 md:grid-cols-2">
@@ -714,17 +715,48 @@ function LineTaskExtractScreen(props: BuilderScreenProps) {
                         送出 line task consult
                     </Button>
                 </div>
+
+                <div className="mt-4 flex justify-center border-t pt-3">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsFormExpanded(false)}
+                        className="gap-2 text-muted-foreground hover:text-foreground"
+                    >
+                        <ChevronUp className="h-4 w-4" />
+                        收起表單
+                    </Button>
+                </div>
             </div>
         </form>
     );
 
-    const mainContent = submissions.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-            輸入口語訊息後送出，開始測試 line task extraction。需要覆蓋系統時間時再勾選測試模式。
-        </div>
-    ) : (
-        <div className="flex flex-col gap-4">
-            {submissions.map((submission) => (
+    const topPanel = isFormExpanded ? topPanelContent : null;
+
+    const mainContent = (
+        <>
+            {!isFormExpanded && (
+                <div className="mb-4 flex justify-center">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsFormExpanded(true)}
+                        className="gap-2 text-muted-foreground hover:text-foreground"
+                    >
+                        <ChevronDown className="h-4 w-4" />
+                        展開表單
+                    </Button>
+                </div>
+            )}
+
+            {submissions.length === 0 ? (
+                <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+                    輸入口語訊息後送出，開始測試 line task extraction。需要覆蓋系統時間時再勾選測試模式。
+                </div>
+            ) : (
+                <div className="flex flex-col gap-4">
+                    {submissions.map((submission) => (
                 <div key={submission.id} className="rounded-2xl border bg-background/95 p-4 shadow-sm">
                     <div className="flex flex-col gap-3 border-b pb-3 md:flex-row md:items-start md:justify-between">
                         <div className="space-y-1">
@@ -811,7 +843,9 @@ function LineTaskExtractScreen(props: BuilderScreenProps) {
                     ) : null}
                 </div>
             ))}
-        </div>
+                </div>
+            )}
+        </>
     );
 
     const footer = (
