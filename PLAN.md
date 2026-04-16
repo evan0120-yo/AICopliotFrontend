@@ -15,7 +15,7 @@
 意思是：
 
 - 先定義畫面行為與 user flow，再討論 UI 實作
-- `PLAN / DEVELOPMENT / SPEC / BDD / CODE_REVIEW` 必須基於同一套 current behavior
+- `PLAN / DEVELOPMENT / BDD / SDD / TDD / CODE_REVIEW` 必須基於同一套 current behavior
 - 如果 code、文件、實際畫面不一致，視為缺陷
 
 ## Overview
@@ -54,8 +54,9 @@ Step 1: 定義 flow
 Step 2: 文件定稿
    ├─ PLAN
    ├─ DEVELOPMENT
-   ├─ SPEC
-   └─ BDD
+   ├─ BDD
+   ├─ SDD
+   └─ TDD
    │
    ▼
 Step 3: 對照 API / DTO
