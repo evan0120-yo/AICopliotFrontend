@@ -14,21 +14,23 @@
 ```text
 current frontend baseline
 ├─ 有
+│  ├─ npm run test -- --run
 │  ├─ npm run build
 │  ├─ npm run lint
 │  └─ npm exec tsc -- --noEmit
-└─ 沒有
-   └─ 已接上的 automated test runner
+└─ automated coverage
+   └─ 第一批 pure logic tests
 ```
 
 所以目前 frontend 的實際驗證順序是：
 
 ```text
 先改 code
-└─ 跑 tsc
-   └─ 跑 build
-      └─ 視需要跑 lint
-         └─ 手動驗證主要 flow
+└─ 跑 test
+   └─ 跑 tsc
+      └─ 跑 build
+         └─ 視需要跑 lint
+            └─ 手動驗證主要 flow
 ```
 
 ## Testing Order
@@ -70,7 +72,7 @@ screen-level logic
 
 ### 3. Manual Flow Third
 
-目前沒有 test runner，所以主要流程至少手動驗：
+目前已有第一批純邏輯自動化測試，但主要流程仍要手動驗：
 
 ```text
 manual regression
@@ -82,6 +84,16 @@ manual regression
 └─ Template CRUD
 ```
 
+目前自動化測試已覆蓋：
+
+```text
+src/features/builder-chat/logic.test.ts
+├─ resolveBuilderScreenVariant
+├─ normalizeLineTaskReferenceTime
+├─ buildAstrologyPayload
+└─ buildAstrologySlotErrors
+```
+
 ## Change-Type Matrix
 
 ### A. 只改 DTO / Hook
@@ -90,6 +102,7 @@ manual regression
 
 ```text
 DTO / hook change
+├─ test
 ├─ tsc
 ├─ build
 └─ 針對該 flow 手動打一遍 request
@@ -106,6 +119,7 @@ DTO / hook change
 
 ```text
 variant change
+├─ test
 ├─ tsc
 ├─ build
 └─ 手動驗三種 screen
@@ -120,6 +134,7 @@ variant change
 
 ```text
 astrology change
+├─ test
 ├─ slot validation
 ├─ payload shape
 ├─ submit success
@@ -137,6 +152,7 @@ astrology change
 
 ```text
 line task change
+├─ test
 ├─ referenceTime normalize
 ├─ supportedTaskTypes 是否仍正確送出
 ├─ custom current time 開關
@@ -153,6 +169,7 @@ line task change
 
 ```text
 admin change
+├─ test
 ├─ graph load
 ├─ graph save
 ├─ source / rag orderNo
@@ -160,9 +177,9 @@ admin change
 └─ metadata round-trip
 ```
 
-## When Automated Tests Land
+## Next Automation Targets
 
-這不是 current truth，但作為前端 TDD 方向，下一個最合理的落點是：
+目前第一批已落地，下一步最合理的落點是：
 
 ```text
 future first automation targets

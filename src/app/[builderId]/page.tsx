@@ -19,11 +19,29 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Sidebar } from '@/components/layout/sidebar';
 import { MarkdownBlock } from '@/components/features/markdown-block';
 import {
+    ASTROLOGY_SLOT_LABELS,
+    createDefaultAstrologyState,
+    createWeightedSlotState,
+    buildAstrologyPayload,
+    buildAstrologySlotErrors,
+    DEFAULT_ASTROLOGY_TEXT,
+    DEFAULT_LINE_TASK_APP_ID,
+    describeAstrologySlot,
+    formatDateTimeLocalValue,
+    normalizeLineTaskReferenceTime,
+    resolveBuilderScreenVariant,
+    defaultLineTaskTimeZone,
+    AstrologyFormState,
+    AstrologySingleValue,
+    AstrologySlotKey,
+    AstrologyWeightedEntryState,
+    UNKNOWN_ZODIAC_VALUE,
+    ZODIAC_OPTIONS,
+} from '@/features/builder-chat/logic';
+import {
     BuilderSummary,
     ConsultFilePayload,
     LineTaskConsultResponse,
-    ProfileConsultRequestData,
-    WeightedZodiacEntry,
     ZodiacKey,
 } from '@/types/api';
 
@@ -32,13 +50,6 @@ const MAX_TOTAL_SIZE = 50 * 1024 * 1024;
 const MAX_FILES = 10;
 const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'];
 const FILE_ACCEPT_VALUE = ALLOWED_EXTENSIONS.map((extension) => `.${extension}`).join(',');
-const ASTROLOGY_BUILDER_ID = 3;
-const ASTROLOGY_BUILDER_CODE = 'linkchat-astrology';
-const LINE_TASK_BUILDER_CODE = 'line-memo-crud';
-const UNKNOWN_ZODIAC_VALUE = 'unknown';
-const DEFAULT_ASTROLOGY_TEXT = '請分析這個人的核心性格與外在社交表現。';
-const DEFAULT_LINE_TASK_APP_ID = '';
-
 const formSchema = z.object({
     text: z.string(),
     outputFormat: z.string().optional(),
@@ -85,24 +96,6 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-type BuilderScreenVariant = 'generic_consult' | 'astrology_profile' | 'line_task_extract';
-type AstrologySlotKey = 'sun_sign' | 'moon_sign' | 'rising_sign';
-type AstrologySingleValue = ZodiacKey | typeof UNKNOWN_ZODIAC_VALUE;
-type AstrologyWeightedEntryState = {
-    key: ZodiacKey;
-    weightPercent: string;
-};
-type AstrologySlotState =
-    | {
-          mode: 'single';
-          value: AstrologySingleValue;
-      }
-    | {
-          mode: 'weighted';
-          entries: [AstrologyWeightedEntryState, AstrologyWeightedEntryState];
-      };
-type AstrologyFormState = Record<AstrologySlotKey, AstrologySlotState>;
-type SlotErrorMap = Partial<Record<AstrologySlotKey, string>>;
 type ChatMessage = {
     id: string;
     role: 'user' | 'assistant';
@@ -145,27 +138,6 @@ type ConversationLayoutProps = BuilderScreenProps & {
     mainContent?: React.ReactNode;
 };
 
-const ASTROLOGY_SLOT_LABELS: Record<AstrologySlotKey, string> = {
-    sun_sign: '太陽',
-    moon_sign: '月亮',
-    rising_sign: '上升',
-};
-
-const ZODIAC_OPTIONS: Array<{ key: ZodiacKey; label: string }> = [
-    { key: 'aries', label: '牡羊' },
-    { key: 'taurus', label: '金牛' },
-    { key: 'gemini', label: '雙子' },
-    { key: 'cancer', label: '巨蟹' },
-    { key: 'leo', label: '獅子' },
-    { key: 'virgo', label: '處女' },
-    { key: 'libra', label: '天秤' },
-    { key: 'scorpio', label: '天蠍' },
-    { key: 'sagittarius', label: '射手' },
-    { key: 'capricorn', label: '魔羯' },
-    { key: 'aquarius', label: '水瓶' },
-    { key: 'pisces', label: '雙魚' },
-];
-
 let messageSequence = 0;
 
 function createMessageId() {
@@ -185,139 +157,6 @@ function buildAssistantMessageContent(response: string, statusAns: string) {
         return '系統未提供 response 內容。';
     }
     return '系統未提供額外內容。';
-}
-
-function resolveBuilderScreenVariant(builderId: number, currentBuilder?: BuilderSummary): BuilderScreenVariant {
-    if (currentBuilder?.builderCode === LINE_TASK_BUILDER_CODE) {
-        return 'line_task_extract';
-    }
-    if (builderId === ASTROLOGY_BUILDER_ID || currentBuilder?.builderCode === ASTROLOGY_BUILDER_CODE) {
-        return 'astrology_profile';
-    }
-    return 'generic_consult';
-}
-
-function padDatePart(value: number) {
-    return value.toString().padStart(2, '0');
-}
-
-function formatDateTimeLocalValue(date: Date) {
-    return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}T${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`;
-}
-
-function normalizeLineTaskReferenceTime(value: string) {
-    const trimmed = value.trim();
-    if (!trimmed) {
-        return '';
-    }
-
-    const candidate = trimmed.includes('T') ? trimmed : trimmed.replace(' ', 'T');
-    const date = new Date(candidate);
-    if (Number.isNaN(date.getTime())) {
-        return trimmed;
-    }
-
-    return `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())} ${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}:00`;
-}
-
-function defaultLineTaskTimeZone() {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Taipei';
-}
-
-function getZodiacLabel(key: ZodiacKey) {
-    return ZODIAC_OPTIONS.find((option) => option.key === key)?.label ?? key;
-}
-
-function getNextDifferentZodiac(first: ZodiacKey) {
-    return ZODIAC_OPTIONS.find((option) => option.key !== first)?.key ?? 'taurus';
-}
-
-function createDefaultAstrologyState(): AstrologyFormState {
-    return {
-        sun_sign: { mode: 'single', value: UNKNOWN_ZODIAC_VALUE },
-        moon_sign: { mode: 'single', value: UNKNOWN_ZODIAC_VALUE },
-        rising_sign: { mode: 'single', value: UNKNOWN_ZODIAC_VALUE },
-    };
-}
-
-function createWeightedSlotState(previousValue: AstrologySingleValue): AstrologySlotState {
-    const firstKey = previousValue !== UNKNOWN_ZODIAC_VALUE ? previousValue : 'aries';
-    return {
-        mode: 'weighted',
-        entries: [
-            { key: firstKey, weightPercent: '50' },
-            { key: getNextDifferentZodiac(firstKey), weightPercent: '50' },
-        ],
-    };
-}
-
-function buildAstrologyPayload(state: AstrologyFormState): ProfileConsultRequestData['payload'] {
-    const payload: ProfileConsultRequestData['payload'] = {};
-
-    (Object.keys(state) as AstrologySlotKey[]).forEach((slotKey) => {
-        const slotState = state[slotKey];
-        if (slotState.mode === 'single') {
-            if (slotState.value !== UNKNOWN_ZODIAC_VALUE) {
-                payload[slotKey] = [slotState.value];
-            }
-            return;
-        }
-
-        payload[slotKey] = slotState.entries.map<WeightedZodiacEntry>((entry) => ({
-            key: entry.key,
-            weightPercent: Number(entry.weightPercent),
-        }));
-    });
-
-    return payload;
-}
-
-function getAstrologySlotError(slotState: AstrologySlotState) {
-    if (slotState.mode === 'single') {
-        return '';
-    }
-
-    const [first, second] = slotState.entries;
-    if (first.key === second.key) {
-        return '兩個星座不可重複。';
-    }
-
-    const firstWeight = Number(first.weightPercent);
-    const secondWeight = Number(second.weightPercent);
-    if (!Number.isFinite(firstWeight) || !Number.isFinite(secondWeight)) {
-        return '請填入兩個百分比。';
-    }
-
-    if (firstWeight < 0 || firstWeight > 100 || secondWeight < 0 || secondWeight > 100) {
-        return '百分比需介於 0 到 100。';
-    }
-
-    if (firstWeight + secondWeight !== 100) {
-        return '兩個百分比相加必須等於 100。';
-    }
-
-    return '';
-}
-
-function buildAstrologySlotErrors(state: AstrologyFormState): SlotErrorMap {
-    const errors: SlotErrorMap = {};
-    (Object.keys(state) as AstrologySlotKey[]).forEach((slotKey) => {
-        const error = getAstrologySlotError(state[slotKey]);
-        if (error) {
-            errors[slotKey] = error;
-        }
-    });
-    return errors;
-}
-
-function describeAstrologySlot(slotState: AstrologySlotState) {
-    if (slotState.mode === 'single') {
-        return slotState.value === UNKNOWN_ZODIAC_VALUE ? '不知道' : getZodiacLabel(slotState.value);
-    }
-
-    return slotState.entries
-        .map((entry) => `${getZodiacLabel(entry.key)} ${entry.weightPercent || '0'}%`)
-        .join(' / ');
 }
 
 function buildAstrologyUserMessageContent(state: AstrologyFormState, text: string) {
@@ -814,6 +653,10 @@ function LineTaskExtractScreen(props: BuilderScreenProps) {
                                 <p className="mt-1 text-sm font-medium">{submission.response.operation}</p>
                             </div>
                             <div className="rounded-xl border bg-muted/20 p-3">
+                                <p className="text-xs font-semibold uppercase text-muted-foreground">Event ID</p>
+                                <p className="mt-1 text-sm font-medium">{submission.response.eventId || '(empty)'}</p>
+                            </div>
+                            <div className="rounded-xl border bg-muted/20 p-3">
                                 <p className="text-xs font-semibold uppercase text-muted-foreground">Summary</p>
                                 <p className="mt-1 text-sm font-medium">{submission.response.summary || '(empty)'}</p>
                             </div>
@@ -824,6 +667,14 @@ function LineTaskExtractScreen(props: BuilderScreenProps) {
                             <div className="rounded-xl border bg-muted/20 p-3">
                                 <p className="text-xs font-semibold uppercase text-muted-foreground">End At</p>
                                 <p className="mt-1 text-sm font-medium">{submission.response.endAt || '(empty)'}</p>
+                            </div>
+                            <div className="rounded-xl border bg-muted/20 p-3">
+                                <p className="text-xs font-semibold uppercase text-muted-foreground">Query Start At</p>
+                                <p className="mt-1 text-sm font-medium">{submission.response.queryStartAt || '(empty)'}</p>
+                            </div>
+                            <div className="rounded-xl border bg-muted/20 p-3">
+                                <p className="text-xs font-semibold uppercase text-muted-foreground">Query End At</p>
+                                <p className="mt-1 text-sm font-medium">{submission.response.queryEndAt || '(empty)'}</p>
                             </div>
                             <div className="rounded-xl border bg-muted/20 p-3 md:col-span-2">
                                 <p className="text-xs font-semibold uppercase text-muted-foreground">Location</p>
@@ -854,7 +705,7 @@ function LineTaskExtractScreen(props: BuilderScreenProps) {
 
     const footer = (
         <div className="mx-auto max-w-5xl text-xs text-muted-foreground">
-            structured result 會直接對齊 backend `taskType / operation / summary / startAt / endAt / location / missingFields`。
+            structured result 會直接對齊 backend `taskType / operation / eventId / summary / startAt / endAt / queryStartAt / queryEndAt / location / missingFields`。
             快捷鍵：Message Text 使用 `Ctrl/Cmd + Enter` 送出。
         </div>
     );

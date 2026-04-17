@@ -55,6 +55,7 @@ Step 4: Implement Minimum UI
 
 Step 5: Verify
 └─ 依 TDD.md 跑最小驗證
+   ├─ npm run test -- --run
    ├─ npm exec tsc -- --noEmit
    ├─ npm run build
    ├─ npm run lint
@@ -122,15 +123,16 @@ Step 6: Sync Docs
 
 ## Verification Baseline
 
-目前 frontend 沒有接上 automated test runner。
+目前 frontend 已接上第一批 pure logic 自動化測試。
 
 所以日常驗證順序固定是：
 
 ```text
-1. npm exec tsc -- --noEmit
-2. npm run build
-3. npm run lint
-4. 手動驗主要 flow
+1. npm run test -- --run
+2. npm exec tsc -- --noEmit
+3. npm run build
+4. npm run lint
+5. 手動驗主要 flow
 ```
 
 主要手動 flow：

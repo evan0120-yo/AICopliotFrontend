@@ -76,9 +76,12 @@ export interface LineTaskConsultRequestData {
 export interface LineTaskConsultResponse {
     taskType: string;
     operation: 'create' | 'update' | 'delete' | 'query';
+    eventId: string;
     summary: string;
     startAt: string;
     endAt: string;
+    queryStartAt: string;
+    queryEndAt: string;
     location: string;
     missingFields: string[];
 }
